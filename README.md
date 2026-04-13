@@ -29,6 +29,7 @@ Restart Claude Code. The plugin loads automatically in any project.
 | Skill | Trigger | Purpose |
 |-------|---------|---------|
 | **hunt-bugs** | "find bugs", "test syscalls", "compare with Linux" | Discover → Test → Compare → Fix → Report cycle with Docker Linux comparison |
+| **audit-kernel** | "audit kernel", "find deadlocks", "check for races" | Deep kernel internal audit: scheduler, memory, concurrency, signals, filesystem |
 | **benchmark** | "benchmark performance", "optimize IO" | Performance testing against Linux baselines, ≥50% improvement target |
 | **test-app** | "run Nginx on StarryOS", "test app" | Linux application compatibility (Nginx, PostgreSQL, Python, rustc, etc.) |
 | **review-quality** | "review my changes", "check code quality" | Code quality gate: Rust idioms, API design, safety, framework reuse |
@@ -49,6 +50,7 @@ Restart Claude Code. The plugin loads automatically in any project.
 | `scripts/linux-ref-test.sh` | Compile and run a C test inside a Docker Linux container |
 | `scripts/man-lookup.sh` | Fetch syscall man pages (local → Docker → man7.org) |
 | `scripts/journal-entry.sh` | Append structured entries to the work journal |
+| `scripts/stress-test.sh` | Multi-run test runner with SMP sweeping and deadlock detection |
 
 ## Workflow
 
@@ -59,11 +61,20 @@ hunt-bugs ──► review-quality ──► report ──► (repeat)
               test-app  ◄─────────────────────┘
 ```
 
-1. **Hunt bugs** — scan kernel syscall handlers, generate tests, compare against Linux, fix divergences
-2. **Review quality** — gate every fix for Rust idioms, safety, API design, code reuse
-3. **Report** — write bug report + journal entry
-4. **Benchmark** — establish Linux baselines, profile, optimize, measure improvement
-5. **Test apps** — pick a Linux application, audit its syscall requirements, fill gaps, verify it runs
+1. **Hunt bugs** — scan syscall handlers, generate tests, compare against Linux, fix divergences
+2. **Audit kernel** — go deeper: scheduler fairness, memory leaks, concurrency races, signal delivery, lock ordering
+3. **Review quality** — gate every fix for Rust idioms, safety, API design, code reuse
+4. **Report** — write bug report + journal entry
+5. **Benchmark** — establish Linux baselines, profile, optimize, measure improvement
+6. **Test apps** — pick a Linux application, audit its syscall requirements, fill gaps, verify it runs
+
+### Anti-Hallucination Discipline
+
+Every finding must be backed by **verifiable evidence** — executable test results, source-level proof, or measurable property violations. The harness enforces a verification tier system: LLM reasoning alone (tier 7) is never reported as a finding. Suspected bugs must be escalated to executable evidence (tier 1-4) by writing a test that proves the bug exists. See `skills/audit-kernel/references/verification-discipline.md`.
+
+### Concurrency Bug Reproduction
+
+Non-deterministic bugs are reproduced via **controlled amplification**: SMP sweeping (same test across 1/2/4 cores), repeat amplification (100+ runs, report failure rate), yield injection (force context switches at suspected race points), and memory pressure (reduced QEMU RAM). The `stress-test.sh` script automates this.
 
 Reports are written to `docs/starry-reports/` in the target project:
 - `journal.md` — running work log

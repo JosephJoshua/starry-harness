@@ -1,0 +1,17 @@
+{
+  "name": "starry-harness",
+  "owner": {
+    "name": "JosephJoshua"
+  },
+  "metadata": {
+    "description": "AI-driven engineering harness for StarryOS kernel improvement"
+  },
+  "plugins": [
+    {
+      "name": "starry-harness",
+      "source": ".",
+      "description": "Bug hunting, performance benchmarking, app compatibility testing, code quality review, and structured reporting for StarryOS",
+      "version": "0.1.0"
+    }
+  ]
+}

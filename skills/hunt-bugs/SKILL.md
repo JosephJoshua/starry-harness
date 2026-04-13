@@ -145,6 +145,9 @@ Generate structured artifacts for every bug found and fixed.
 - **`references/workflow.md`** — Detailed phase procedures, bug report template, known.json schema
 - **`references/syscall-patterns.md`** — Common bug patterns in syscall implementations with examples from this codebase
 
+### Related Skills
+- **audit-kernel** — For bugs beyond syscalls (scheduler, memory, concurrency, signals). Use audit-kernel when the bug is in kernel internals rather than syscall behavior.
+
 ### Agents
 - **linux-comparator** — Docker Linux test runner + structured comparison
 - **kernel-reviewer** — Code quality review for kernel changes
