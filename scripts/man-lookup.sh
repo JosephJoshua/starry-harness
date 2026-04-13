@@ -29,11 +29,13 @@ IMAGE="starry-manpages:latest"
 if command -v docker >/dev/null 2>&1; then
   if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "[man-lookup] Building man-pages container..." >&2
-    docker build -t "$IMAGE" -f - /dev/null <<'DOCKERFILE'
+    MAN_BUILD_CTX=$(mktemp -d)
+    docker build -t "$IMAGE" -f - "$MAN_BUILD_CTX" <<'DOCKERFILE'
 FROM ubuntu:24.04
 RUN apt-get update && apt-get install -y --no-install-recommends \
     man-db manpages-dev manpages-posix-dev && rm -rf /var/lib/apt/lists/*
 DOCKERFILE
+    rm -rf "$MAN_BUILD_CTX"
   fi
   result=$(docker run --rm "$IMAGE" man "$SECTION" "$SYSCALL" 2>/dev/null | col -bx 2>/dev/null || true)
   if [ -n "$result" ]; then
