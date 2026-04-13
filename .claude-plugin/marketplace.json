@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "starry-harness",
-      "source": ".",
+      "source": "./",
       "description": "Bug hunting, performance benchmarking, app compatibility testing, code quality review, and structured reporting for StarryOS",
       "version": "0.1.0"
     }
