@@ -1,0 +1,17 @@
+{
+  "description": "StarryOS harness lifecycle hooks: load journal context on session start",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-load.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
