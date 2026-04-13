@@ -107,8 +107,8 @@ See `references/kernel-audit-areas.md` for the full catalog. Summary:
 | Scheduler | `components/axsched/`, `os/arceos/modules/axtask/` | Fairness, starvation, SMP load balance |
 | Memory | `components/starry-vm/`, `os/arceos/modules/axmm/` | Leaks, COW, page fault handling, OOM |
 | Concurrency | `components/kspin/`, `os/arceos/modules/axsync/` | Lock ordering, deadlock, atomicity |
-| Signals | `components/starry-signal/`, `kernel/src/task/signal.rs` | Delivery races, masking, nested signals |
-| Process | `components/starry-process/`, `kernel/src/task/` | Zombie leaks, orphan reparenting, exec races |
+| Signals | `components/starry-signal/`, `os/StarryOS/kernel/src/task/signal.rs` | Delivery races, masking, nested signals |
+| Process | `components/starry-process/`, `os/StarryOS/kernel/src/task/` | Zombie leaks, orphan reparenting, exec races |
 | Filesystem | `os/arceos/modules/axfs/`, `components/rsext4/` | Data integrity, concurrent access, crash safety |
 | Networking | `os/arceos/modules/axnet/`, `components/starry-smoltcp/` | TCP state machine, buffer leaks, connection lifecycle |
 

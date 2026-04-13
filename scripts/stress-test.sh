@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # stress-test.sh — Multi-run test runner with SMP variation and deadlock detection.
 #
 # Runs a StarryOS test multiple times across different SMP configurations
@@ -14,7 +14,7 @@
 #
 # Output: structured report on stdout + JSON results to tests/results/stress_<name>.json
 #
-# Requires: CLAUDE_PROJECT_DIR set (or run from project root)
+# Requires: bash 4+ (for associative arrays), CLAUDE_PROJECT_DIR set (or run from project root)
 set -euo pipefail
 
 # ── Defaults ────────────────────────────────────────────────────
@@ -56,7 +56,16 @@ echo ""
 
 # ── Build kernel once ───────────────────────────────────────────
 echo "[stress] Building StarryOS kernel..."
-(cd "$STARRY_DIR" && bash tools/compile.sh "$TEST_NAME" 2>/dev/null) || true
+if ! (cd "$STARRY_DIR" && bash tools/compile.sh "$TEST_NAME"); then
+  echo "[stress] Build failed for $TEST_NAME — aborting." >&2
+  exit 1
+fi
+
+KERNEL_BIN="$STARRY_DIR/tests/bin/starryos.bin"
+if [ ! -f "$KERNEL_BIN" ]; then
+  echo "[stress] Kernel binary not found at $KERNEL_BIN — aborting." >&2
+  exit 1
+fi
 
 # ── Run matrix ──────────────────────────────────────────────────
 IFS=',' read -ra SMP_CONFIGS <<< "$SMP_LIST"
@@ -77,33 +86,30 @@ for SMP in "${SMP_CONFIGS[@]}"; do
 
   for ((i=1; i<=RUNS; i++)); do
     TOTAL_RUNS=$((TOTAL_RUNS + 1))
-    RUN_OUTPUT=$(mktemp)
 
-    # Run with timeout; capture exit code
+    # Capture output in variable — no temp file needed
     EXIT_CODE=0
-    timeout "${TIMEOUT}s" qemu-system-riscv64 \
+    QEMU_OUTPUT=$(timeout "${TIMEOUT}s" qemu-system-riscv64 \
       -machine virt -nographic -m "$MEMORY" -bios default \
       -smp "$SMP" \
-      -kernel "$STARRY_DIR/tests/bin/starryos.bin" \
+      -kernel "$KERNEL_BIN" \
       -device virtio-blk-pci,drive=disk0 \
       -drive "id=disk0,if=none,format=raw,file=$STARRY_DIR/make/disk.img" \
-      > "$RUN_OUTPUT" 2>&1 || EXIT_CODE=$?
+      2>&1) || EXIT_CODE=$?
 
     # Classify result
     if [ "$EXIT_CODE" -eq 124 ]; then
-      # timeout(1) returns 124 on timeout
       TIMEOUT_COUNT[$SMP]=$((${TIMEOUT_COUNT[$SMP]} + 1))
       printf "  run %3d/%d: TIMEOUT (likely deadlock)\n" "$i" "$RUNS"
-    elif grep -q "FAIL:" "$RUN_OUTPUT"; then
+    elif echo "$QEMU_OUTPUT" | grep -q "FAIL:"; then
       FAIL_COUNT[$SMP]=$((${FAIL_COUNT[$SMP]} + 1))
-      FAIL_LINE=$(grep "FAIL:" "$RUN_OUTPUT" | head -1)
+      FAIL_LINE=$(echo "$QEMU_OUTPUT" | grep "FAIL:" | head -1)
       printf "  run %3d/%d: FAIL — %s\n" "$i" "$RUNS" "$FAIL_LINE"
-    elif grep -q "panic" "$RUN_OUTPUT" || grep -q "trap" "$RUN_OUTPUT"; then
+    elif echo "$QEMU_OUTPUT" | grep -qE "panic|trap"; then
       CRASH_COUNT[$SMP]=$((${CRASH_COUNT[$SMP]} + 1))
       printf "  run %3d/%d: CRASH (kernel panic/trap)\n" "$i" "$RUNS"
-    elif grep -q "PASS:" "$RUN_OUTPUT"; then
+    elif echo "$QEMU_OUTPUT" | grep -q "PASS:"; then
       PASS_COUNT[$SMP]=$((${PASS_COUNT[$SMP]} + 1))
-      # Only print every 10th pass to reduce noise
       if (( i % 10 == 0 )); then
         printf "  run %3d/%d: PASS\n" "$i" "$RUNS"
       fi
@@ -111,8 +117,6 @@ for SMP in "${SMP_CONFIGS[@]}"; do
       FAIL_COUNT[$SMP]=$((${FAIL_COUNT[$SMP]} + 1))
       printf "  run %3d/%d: UNKNOWN (no PASS/FAIL markers)\n" "$i" "$RUNS"
     fi
-
-    rm -f "$RUN_OUTPUT"
   done
 
   P=${PASS_COUNT[$SMP]}
@@ -150,11 +154,13 @@ echo "╠═══════════════════════�
 if [ "$ANY_FAILURE" = true ]; then
   echo "║  RESULT: BUG CONFIRMED (non-deterministic failure)"
 
-  # Detect concurrency-specific patterns
-  SMP1_FAILS=$(( ${FAIL_COUNT[1]:-0} + ${TIMEOUT_COUNT[1]:-0} + ${CRASH_COUNT[1]:-0} ))
-  SMP4_FAILS=$(( ${FAIL_COUNT[4]:-0} + ${TIMEOUT_COUNT[4]:-0} + ${CRASH_COUNT[4]:-0} ))
-  if [ "$SMP1_FAILS" -eq 0 ] && [ "$SMP4_FAILS" -gt 0 ]; then
-    echo "║  PATTERN: SMP=1 clean, SMP=4 fails → CONCURRENCY BUG"
+  # Detect concurrency pattern: first config clean, last config fails
+  SMP_CONTROL="${SMP_CONFIGS[0]}"
+  SMP_TREATMENT="${SMP_CONFIGS[-1]}"
+  CONTROL_FAILS=$(( ${FAIL_COUNT[$SMP_CONTROL]:-0} + ${TIMEOUT_COUNT[$SMP_CONTROL]:-0} + ${CRASH_COUNT[$SMP_CONTROL]:-0} ))
+  TREATMENT_FAILS=$(( ${FAIL_COUNT[$SMP_TREATMENT]:-0} + ${TIMEOUT_COUNT[$SMP_TREATMENT]:-0} + ${CRASH_COUNT[$SMP_TREATMENT]:-0} ))
+  if [ "$CONTROL_FAILS" -eq 0 ] && [ "$TREATMENT_FAILS" -gt 0 ]; then
+    echo "║  PATTERN: SMP=$SMP_CONTROL clean, SMP=$SMP_TREATMENT fails → CONCURRENCY BUG"
   fi
 
   TOTAL_TIMEOUTS=0
@@ -171,25 +177,24 @@ echo "╚═══════════════════════�
 
 # ── JSON output ─────────────────────────────────────────────────
 {
-  echo "{"
-  echo "  \"test\": \"$TEST_NAME\","
-  echo "  \"runs_per_config\": $RUNS,"
-  echo "  \"timeout_seconds\": $TIMEOUT,"
-  echo "  \"memory\": \"$MEMORY\","
-  echo "  \"total_runs\": $TOTAL_RUNS,"
-  echo "  \"any_failure\": $ANY_FAILURE,"
-  echo "  \"configs\": {"
+  printf '{\n'
+  printf '  "test": "%s",\n' "$TEST_NAME"
+  printf '  "runs_per_config": %d,\n' "$RUNS"
+  printf '  "timeout_seconds": %d,\n' "$TIMEOUT"
+  printf '  "memory": "%s",\n' "$MEMORY"
+  printf '  "total_runs": %d,\n' "$TOTAL_RUNS"
+  printf '  "any_failure": %s,\n' "$ANY_FAILURE"
+  printf '  "configs": {\n'
   FIRST=true
   for SMP in "${SMP_CONFIGS[@]}"; do
-    $FIRST || echo ","
+    $FIRST || printf ',\n'
     FIRST=false
-    printf "    \"smp_%s\": {\"pass\": %d, \"fail\": %d, \"timeout\": %d, \"crash\": %d}" \
+    printf '    "smp_%s": {"pass": %d, "fail": %d, "timeout": %d, "crash": %d}' \
       "$SMP" "${PASS_COUNT[$SMP]}" "${FAIL_COUNT[$SMP]}" "${TIMEOUT_COUNT[$SMP]}" "${CRASH_COUNT[$SMP]}"
   done
-  echo ""
-  echo "  },"
-  echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\""
-  echo "}"
+  printf '\n  },\n'
+  printf '  "timestamp": "%s"\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf '}\n'
 } > "$JSON_OUT"
 
 echo ""

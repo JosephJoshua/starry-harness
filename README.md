@@ -68,13 +68,7 @@ hunt-bugs ──► review-quality ──► report ──► (repeat)
 5. **Benchmark** — establish Linux baselines, profile, optimize, measure improvement
 6. **Test apps** — pick a Linux application, audit its syscall requirements, fill gaps, verify it runs
 
-### Anti-Hallucination Discipline
-
-Every finding must be backed by **verifiable evidence** — executable test results, source-level proof, or measurable property violations. The harness enforces a verification tier system: LLM reasoning alone (tier 7) is never reported as a finding. Suspected bugs must be escalated to executable evidence (tier 1-4) by writing a test that proves the bug exists. See `skills/audit-kernel/references/verification-discipline.md`.
-
-### Concurrency Bug Reproduction
-
-Non-deterministic bugs are reproduced via **controlled amplification**: SMP sweeping (same test across 1/2/4 cores), repeat amplification (100+ runs, report failure rate), yield injection (force context switches at suspected race points), and memory pressure (reduced QEMU RAM). The `stress-test.sh` script automates this.
+The `audit-kernel` skill enforces a verification tier system and controlled amplification techniques for reproducing concurrency bugs. See `skills/audit-kernel/references/` for the full protocol.
 
 Reports are written to `docs/starry-reports/` in the target project:
 - `journal.md` — running work log
