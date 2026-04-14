@@ -5,7 +5,8 @@ set -euo pipefail
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:?CLAUDE_PROJECT_DIR must be set}"
 STARRY_DIR="$PROJECT_DIR/os/StarryOS"
-TOOLS_DIR="$STARRY_DIR/tools"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PIPELINE="$SCRIPT_DIR/pipeline.sh"
 KNOWN_JSON="$STARRY_DIR/tests/known.json"
 CASES_DIR="$STARRY_DIR/tests/cases"
 RESULTS_DIR="$STARRY_DIR/tests/results"
@@ -69,7 +70,7 @@ for entry in "${SYSCALLS[@]}"; do
   # ── Run pipeline: compile -> inject -> run ──
   printf '  %-24s running...' "${test_name}:"
   pipeline_log="$RESULTS_DIR/.pipeline-${test_name}.log"
-  if ! "$TOOLS_DIR/pipeline.sh" "$test_name" > "$pipeline_log" 2>&1; then
+  if ! "$PIPELINE" "$test_name" > "$pipeline_log" 2>&1; then
     printf '\r  %-24s ERROR (pipeline failed)\n' "${test_name}:"
     json_entries+=("$(printf '{"syscall":"%s","test":"%s","status":"error","expected_pass":%d,"expected_fail":%d,"actual_pass":0,"actual_fail":0}' \
       "$syscall" "$test_name" "$exp_pass" "$exp_fail")")
