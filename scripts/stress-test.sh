@@ -60,11 +60,11 @@ case "$ARCH" in
     ;;
   aarch64)
     QEMU_BIN="qemu-system-aarch64"
-    QEMU_MACHINE="-machine virt -cpu cortex-a72"
+    QEMU_MACHINE="-cpu cortex-a72 -machine virt"
     ;;
   x86_64)
     QEMU_BIN="qemu-system-x86_64"
-    QEMU_MACHINE="-machine q35 -cpu qemu64"
+    QEMU_MACHINE="-machine q35"
     ;;
   loongarch64)
     QEMU_BIN="qemu-system-loongarch64"

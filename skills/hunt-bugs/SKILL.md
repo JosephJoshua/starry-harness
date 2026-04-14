@@ -77,16 +77,16 @@ Run the test on both Linux (Docker) and StarryOS to find behavioral divergences.
 
 **Dispatch the linux-comparator agent** for this phase. It will:
 1. Run `${CLAUDE_PLUGIN_ROOT}/scripts/linux-ref-test.sh` for the Docker baseline
-2. Run the StarryOS pipeline (`os/StarryOS/tools/pipeline.sh`)
+2. Run the StarryOS pipeline (`${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh`)
 3. Produce a structured comparison report
 
 If not using the agent, run manually:
 ```bash
-# Linux baseline
+# Linux baseline (add --arch riscv64 for cross-arch comparison)
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/linux-ref-test.sh os/StarryOS/tests/cases/test_<name>.c /tmp/linux-ref.txt
 
-# StarryOS
-(cd os/StarryOS && tools/pipeline.sh <name>)
+# StarryOS (supports --arch riscv64|aarch64|x86_64|loongarch64)
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh <name> --arch riscv64
 
 # Compare
 diff /tmp/linux-ref.txt os/StarryOS/tests/results/test_<name>.txt
@@ -147,7 +147,8 @@ Generate structured artifacts for every bug found and fixed.
 | Test sources | `os/StarryOS/tests/cases/test_*.c` |
 | Test results | `os/StarryOS/tests/results/` |
 | Known bugs registry | `os/StarryOS/tests/known.json` |
-| Pipeline scripts | `os/StarryOS/tools/{compile,inject,run,pipeline}.sh` |
+| Pipeline (multi-arch) | `${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh --arch <arch>` |
+| Pipeline (legacy riscv64-only) | `os/StarryOS/tools/{compile,inject,run,pipeline}.sh` |
 | Bug reports | `docs/starry-reports/bugs/` |
 | Work journal | `docs/starry-reports/journal.md` |
 
