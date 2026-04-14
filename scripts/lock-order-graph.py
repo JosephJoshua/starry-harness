@@ -5,14 +5,13 @@ Scans Rust source files for lock acquisition patterns, builds a directed
 graph of which locks are held when other locks are acquired, and detects
 cycles (potential deadlocks).
 
+Understands Rust ownership semantics:
+  - `let guard = x.lock();`  → lock is HELD until end of scope or drop(guard)
+  - `x.lock().do_thing();`   → temporary, dropped at semicolon, NOT held
+  - `drop(guard);`           → explicit release before next acquisition
+
 Usage:
     lock-order-graph.py [kernel_src_dir] [--json output.json]
-
-Output:
-    - Lock acquisition sites with enclosing function
-    - Directed graph of lock orderings
-    - Any cycles found (potential deadlocks)
-    - JSON output for downstream consumption
 
 This is fully deterministic — no LLM reasoning involved.
 """
@@ -23,24 +22,19 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-# Lock acquisition patterns in Rust
-LOCK_PATTERNS = [
-    # pattern, lock_type
-    (r'\.lock\(\)', 'Mutex'),
-    (r'\.read\(\)', 'RwLock-read'),
-    (r'\.write\(\)', 'RwLock-write'),
-    (r'SpinNoIrq::new\(', 'SpinNoIrq-init'),
-]
-
-# Compiled regex for lock calls
+# Compiled regexes
 LOCK_RE = re.compile(r'(\w[\w.()]*)\.(lock|read|write)\(\)')
-
-# Function definition pattern
 FN_RE = re.compile(r'^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)')
-
-# Unsafe block pattern
 UNSAFE_RE = re.compile(r'\bunsafe\b')
 SAFETY_COMMENT_RE = re.compile(r'//\s*SAFETY:', re.IGNORECASE)
+
+# Patterns for Rust ownership analysis
+LET_BIND_RE = re.compile(r'let\s+(?:mut\s+)?(\w+)\s*=.*\.(lock|read|write)\(\)')
+DROP_RE = re.compile(r'drop\(\s*(\w+)\s*\)')
+SCOPE_OPEN_RE = re.compile(r'\{')
+SCOPE_CLOSE_RE = re.compile(r'\}')
+# Temporary: lock().method() on same line with no let binding
+TEMP_LOCK_RE = re.compile(r'(?<!let\s)(?<!let\smut\s)\w[\w.()]*\.(lock|read|write)\(\)\s*\.')
 
 
 def find_rust_files(root: Path):
@@ -49,23 +43,40 @@ def find_rust_files(root: Path):
 
 
 def extract_lock_sites(filepath: Path, lines: list[str]):
-    """Extract lock acquisition sites with their enclosing function."""
+    """Extract lock acquisition sites with ownership analysis.
+
+    Each site includes whether the lock guard is:
+    - 'held': bound to a let variable (alive until scope end or drop)
+    - 'temporary': used as a temporary expression (dropped at semicolon)
+    """
     sites = []
     current_fn = None
     current_fn_line = 0
 
     for i, line in enumerate(lines, 1):
-        # Track current function
         fn_match = FN_RE.match(line)
         if fn_match:
             current_fn = fn_match.group(1)
             current_fn_line = i
 
-        # Find lock acquisitions
         for lock_match in LOCK_RE.finditer(line):
             receiver = lock_match.group(1)
             method = lock_match.group(2)
             lock_name = f"{receiver}.{method}()"
+
+            # Determine if the lock guard is held or temporary
+            let_match = LET_BIND_RE.search(line)
+            if let_match:
+                binding = 'held'
+                guard_var = let_match.group(1)
+            elif TEMP_LOCK_RE.search(line) or (';' in line and 'let ' not in line):
+                binding = 'temporary'
+                guard_var = None
+            else:
+                # Conservative: assume held if we can't determine
+                binding = 'held'
+                guard_var = None
+
             sites.append({
                 'file': str(filepath),
                 'line': i,
@@ -74,6 +85,8 @@ def extract_lock_sites(filepath: Path, lines: list[str]):
                 'lock': lock_name,
                 'method': method,
                 'receiver': receiver,
+                'binding': binding,
+                'guard_var': guard_var,
                 'raw_line': line.strip(),
             })
 
@@ -83,7 +96,6 @@ def extract_lock_sites(filepath: Path, lines: list[str]):
 def extract_unsafe_blocks(filepath: Path, lines: list[str]):
     """Extract unsafe blocks and check for SAFETY comments."""
     blocks = []
-
     current_fn = None
     for i, line in enumerate(lines, 1):
         fn_match = FN_RE.match(line)
@@ -92,7 +104,6 @@ def extract_unsafe_blocks(filepath: Path, lines: list[str]):
 
         if UNSAFE_RE.search(line) and 'unsafe fn' not in line:
             has_safety = False
-            # Check previous 3 lines for SAFETY comment
             for j in range(max(0, i - 4), i - 1):
                 if SAFETY_COMMENT_RE.search(lines[j]):
                     has_safety = True
@@ -108,31 +119,69 @@ def extract_unsafe_blocks(filepath: Path, lines: list[str]):
     return blocks
 
 
-def build_lock_graph(sites):
-    """Build a directed graph: edge A→B means lock A is held when lock B is acquired.
+def find_drops_in_function(lines, fn_sites):
+    """Find explicit drop() calls within a function's line range."""
+    if not fn_sites:
+        return {}
+    min_line = min(s['line'] for s in fn_sites)
+    max_line = max(s['line'] for s in fn_sites)
+    drops = {}  # var_name -> line_number
+    for i in range(min_line - 1, min(max_line + 50, len(lines))):
+        for m in DROP_RE.finditer(lines[i]):
+            drops[m.group(1)] = i + 1
+    return drops
 
-    Approximation: within the same function, if lock A is acquired before lock B,
-    we assume A is still held when B is acquired (conservative).
+
+def build_lock_graph(sites, all_lines_by_file):
+    """Build a directed graph with Rust ownership awareness.
+
+    Edge A→B means lock A is demonstrably HELD when lock B is acquired:
+    - A must be 'held' (let-bound), not 'temporary'
+    - A must not have been drop()'d before B's line
+    - A and B must be in the same function
     """
     graph = defaultdict(set)
-    # Group sites by function
+    edge_evidence = defaultdict(list)  # For reporting
+
     by_function = defaultdict(list)
     for site in sites:
         key = (site['file'], site['function'])
         by_function[key].append(site)
 
-    for key, fn_sites in by_function.items():
-        # Sort by line number within function
+    for (filepath, fn_name), fn_sites in by_function.items():
         fn_sites.sort(key=lambda s: s['line'])
-        # Each lock acquired after a previous lock creates an edge
-        for i in range(len(fn_sites)):
-            for j in range(i + 1, len(fn_sites)):
-                a = fn_sites[i]['lock']
-                b = fn_sites[j]['lock']
-                if a != b:
-                    graph[a].add(b)
 
-    return graph
+        # Find drop() calls in this function
+        file_lines = all_lines_by_file.get(filepath, [])
+        drops = find_drops_in_function(file_lines, fn_sites)
+
+        for i in range(len(fn_sites)):
+            a = fn_sites[i]
+            # Only create edges from HELD locks, not temporaries
+            if a['binding'] == 'temporary':
+                continue
+
+            for j in range(i + 1, len(fn_sites)):
+                b = fn_sites[j]
+
+                # Check if A was explicitly dropped before B
+                if a['guard_var'] and a['guard_var'] in drops:
+                    drop_line = drops[a['guard_var']]
+                    if drop_line < b['line']:
+                        continue  # A was dropped before B acquired
+
+                if a['lock'] != b['lock']:
+                    graph[a['lock']].add(b['lock'])
+                    edge_evidence[(a['lock'], b['lock'])].append({
+                        'file': filepath,
+                        'function': fn_name,
+                        'a_line': a['line'],
+                        'b_line': b['line'],
+                        'a_binding': a['binding'],
+                        'a_guard': a['guard_var'],
+                    })
+
+    return graph, edge_evidence
 
 
 def find_cycles(graph):
@@ -140,7 +189,6 @@ def find_cycles(graph):
     cycles = []
     visited = set()
     rec_stack = set()
-    parent = {}
 
     def dfs(node, path):
         visited.add(node)
@@ -149,10 +197,8 @@ def find_cycles(graph):
 
         for neighbor in graph.get(node, []):
             if neighbor not in visited:
-                parent[neighbor] = node
                 dfs(neighbor, path)
             elif neighbor in rec_stack:
-                # Found a cycle
                 cycle_start = path.index(neighbor)
                 cycle = path[cycle_start:] + [neighbor]
                 cycles.append(cycle)
@@ -170,7 +216,6 @@ def find_cycles(graph):
 def main():
     sys.setrecursionlimit(5000)
 
-    # Parse arguments
     kernel_dir = sys.argv[1] if len(sys.argv) > 1 else os.environ.get('CLAUDE_PROJECT_DIR', '.')
     kernel_src = Path(kernel_dir) / 'os' / 'StarryOS' / 'kernel' / 'src'
 
@@ -183,7 +228,6 @@ def main():
         print(f"Error: kernel source not found at {kernel_src}", file=sys.stderr)
         sys.exit(1)
 
-    # Also scan key component sources
     component_dirs = [
         Path(kernel_dir) / 'components' / 'kspin' / 'src',
         Path(kernel_dir) / 'os' / 'arceos' / 'modules' / 'axsync' / 'src',
@@ -194,37 +238,42 @@ def main():
 
     all_dirs = [kernel_src] + [d for d in component_dirs if d.exists()]
 
-    # Extract lock sites
+    # Single pass: read all files, extract lock sites and unsafe blocks
     all_sites = []
     all_unsafe = []
+    all_lines_by_file = {}
+
     for src_dir in all_dirs:
         for rs_file in find_rust_files(src_dir):
             try:
                 lines = rs_file.read_text().splitlines()
             except Exception:
                 continue
+            all_lines_by_file[str(rs_file)] = lines
             all_sites.extend(extract_lock_sites(rs_file, lines))
             all_unsafe.extend(extract_unsafe_blocks(rs_file, lines))
 
-    # Build graph
-    graph = build_lock_graph(all_sites)
+    # Build graph with ownership awareness
+    graph, edge_evidence = build_lock_graph(all_sites, all_lines_by_file)
     serializable_graph = {k: sorted(v) for k, v in graph.items()}
 
-    # Find cycles
     cycles = find_cycles(graph)
-
-    # Count unsafe without SAFETY
     unsafe_missing_safety = [b for b in all_unsafe if not b['has_safety_comment']]
+
+    # Count binding types
+    held_count = sum(1 for s in all_sites if s['binding'] == 'held')
+    temp_count = sum(1 for s in all_sites if s['binding'] == 'temporary')
 
     # Print report
     print("╔═══════════════════════════════════════════════════╗")
     print("║  Lock Order Analysis — StarryOS Kernel            ║")
+    print("║  (Rust ownership-aware)                           ║")
     print("╚═══════════════════════════════════════════════════╝")
     print()
     print(f"Files scanned:        {len(set(s['file'] for s in all_sites))}")
-    print(f"Lock acquisitions:    {len(all_sites)}")
+    print(f"Lock acquisitions:    {len(all_sites)} ({held_count} held, {temp_count} temporary)")
     print(f"Unique locks:         {len(set(s['lock'] for s in all_sites))}")
-    print(f"Lock ordering edges:  {sum(len(v) for v in graph.values())}")
+    print(f"Lock ordering edges:  {sum(len(v) for v in graph.values())} (after filtering temporaries)")
     print(f"Cycles found:         {len(cycles)}")
     print(f"Unsafe blocks:        {len(all_unsafe)}")
     print(f"Unsafe without SAFETY: {len(unsafe_missing_safety)}")
@@ -234,6 +283,14 @@ def main():
         print("⚠  POTENTIAL DEADLOCKS DETECTED:")
         for i, cycle in enumerate(cycles, 1):
             print(f"  Cycle {i}: {' → '.join(cycle)}")
+            # Show evidence for each edge in the cycle
+            for k in range(len(cycle) - 1):
+                edge_key = (cycle[k], cycle[k + 1])
+                evidence = edge_evidence.get(edge_key, [])
+                for ev in evidence[:1]:  # Show first evidence only
+                    rel = os.path.relpath(ev['file'], kernel_dir)
+                    print(f"    {cycle[k]} → {cycle[k+1]}: {rel}:{ev['a_line']}-{ev['b_line']} "
+                          f"in {ev['function']}() [guard={ev['a_guard'] or 'unknown'}]")
         print()
 
     if unsafe_missing_safety:
@@ -261,6 +318,8 @@ def main():
         'summary': {
             'files_scanned': len(set(s['file'] for s in all_sites)),
             'lock_acquisitions': len(all_sites),
+            'held_locks': held_count,
+            'temporary_locks': temp_count,
             'unique_locks': len(set(s['lock'] for s in all_sites)),
             'ordering_edges': sum(len(v) for v in graph.values()),
             'cycles': len(cycles),
@@ -268,6 +327,10 @@ def main():
             'unsafe_missing_safety': len(unsafe_missing_safety),
         },
         'cycles': cycles,
+        'cycle_evidence': {
+            f"{a}->{b}": evs for (a, b), evs in edge_evidence.items()
+            if any(a in c and b in c for c in cycles)
+        },
         'graph': serializable_graph,
         'unsafe_missing_safety': [
             {'file': os.path.relpath(b['file'], kernel_dir), 'line': b['line'],
@@ -282,7 +345,6 @@ def main():
             json.dump(result, f, indent=2)
         print(f"[lock-order] JSON output: {json_output}")
     else:
-        # Print to stdout as JSON for piping
         print("--- JSON ---")
         print(json.dumps(result, indent=2))
 

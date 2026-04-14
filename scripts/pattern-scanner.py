@@ -98,6 +98,28 @@ DEFAULT_PATTERNS = [
         "category": "correctness",
         "discovered_from": ["pwritev2"]
     },
+    {
+        "id": "assert-unsigned-on-u32",
+        "description": "assert_unsigned or similar check rejects valid u32 values >= 2^31 by treating them as signed",
+        "grep_pattern": r"assert_unsigned|as i32.*< 0|\.is_negative",
+        "file_glob": "os/StarryOS/kernel/src/**/*.rs",
+        "exclude_pattern": r"i64|isize|signed",
+        "context_lines": 3,
+        "severity": "P1",
+        "category": "correctness",
+        "discovered_from": ["futex"]
+    },
+    {
+        "id": "ab-ba-lock-pattern",
+        "description": "Two let-bound lock guards in same function — potential AB/BA deadlock if another function reverses the order",
+        "grep_pattern": r"let\s+(?:mut\s+)?\w+\s*=.*\.lock\(\)",
+        "file_glob": "os/StarryOS/kernel/src/**/*.rs",
+        "exclude_pattern": r"drop\(|#\[should_panic\]|test",
+        "context_lines": 8,
+        "severity": "P1",
+        "category": "concurrency",
+        "discovered_from": ["shm_deadlock"]
+    },
 ]
 
 
