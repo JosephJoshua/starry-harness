@@ -89,10 +89,11 @@ echo "║  runs=$RUNS  smp=[$SMP_LIST]  timeout=${TIMEOUT}s  mem=$MEMORY"
 echo "╚═══════════════════════════════════════════════════╝"
 echo ""
 
-# ── Build kernel once ───────────────────────────────────────────
-echo "[stress] Building StarryOS kernel..."
-if ! (cd "$STARRY_DIR" && bash tools/compile.sh "$TEST_NAME"); then
-  echo "[stress] Build failed for $TEST_NAME — aborting." >&2
+# ── Build kernel once (full pipeline: compile, inject, build, first QEMU run) ──
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+echo "[stress] Running full pipeline for $TEST_NAME (compile + inject + build + first run)..."
+if ! bash "$SCRIPT_DIR/pipeline.sh" "$TEST_NAME" --arch "$ARCH"; then
+  echo "[stress] Pipeline failed for $TEST_NAME — aborting." >&2
   exit 1
 fi
 

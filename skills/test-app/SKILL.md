@@ -121,7 +121,7 @@ cd os/StarryOS
 # Copy binary into the rootfs tree
 cp /path/to/app-binary tests/bin/<app>
 # Or use the pipeline injection step
-bash tools/inject.sh tests/bin/<app> /bin/<app>
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh <app>
 ```
 
 **Step 2 — Create a test wrapper**: Write a minimal shell script or C wrapper that launches the application and captures output:
@@ -135,7 +135,7 @@ echo "EXIT_CODE=$?"
 **Step 3 — Boot and run**:
 ```bash
 cd os/StarryOS
-bash tools/pipeline.sh <app>
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh <app>
 ```
 
 **Step 4 — Capture output**: The pipeline writes output to `os/StarryOS/tests/results/test_<app>.txt`. Inspect for:
@@ -220,7 +220,7 @@ Confirm the application runs correctly and generate the competition report.
 | Known syscall registry | `os/StarryOS/tests/known.json` |
 | Test binaries | `os/StarryOS/tests/bin/` |
 | Test results | `os/StarryOS/tests/results/` |
-| Pipeline scripts | `os/StarryOS/tools/{compile,inject,run,pipeline}.sh` |
+| Pipeline script | `${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh` |
 | App compatibility reports | `docs/starry-reports/apps/` |
 | Work journal | `docs/starry-reports/journal.md` |
 

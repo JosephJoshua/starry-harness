@@ -50,11 +50,8 @@ The following scripts are at your disposal in the plugin directory. Use Bash to 
 - `${CLAUDE_PLUGIN_ROOT}/scripts/linux-ref-test.sh <test.c> [output_file]` — Compile and run a C test inside a Docker Linux container. Output is the raw stdout/stderr from running the test.
 - `${CLAUDE_PLUGIN_ROOT}/scripts/man-lookup.sh <syscall> [section]` — Fetch the Linux man page for a syscall (tries local man, Docker, then man7.org).
 
-The StarryOS test pipeline lives at `os/StarryOS/tools/`:
-- `tools/compile.sh <test_name>` — Cross-compile C test for riscv64
-- `tools/inject.sh <test_name>` — Inject binary into ext4 rootfs via Docker
-- `tools/run.sh <test_name>` — Build kernel, boot QEMU, capture results
-- `tools/pipeline.sh <test_name>` — Full compile → inject → run
+The StarryOS test pipeline:
+- `${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh <test_name>` — Full compile → inject → build → run
 
 Test sources live in `os/StarryOS/tests/cases/` and use the `starry_test.h` harness.
 
@@ -63,7 +60,7 @@ Test sources live in `os/StarryOS/tests/cases/` and use the `starry_test.h` harn
 1. **Identify the test**: Read the C test source to understand what it's testing.
 2. **Fetch the man page**: Run `man-lookup.sh <syscall>` to get the Linux specification. Note expected return values, error codes, and edge-case behavior.
 3. **Run on Linux**: Execute `linux-ref-test.sh <test.c> /tmp/linux-output.txt`. Parse the PASS/FAIL lines.
-4. **Run on StarryOS**: Execute the StarryOS pipeline via `(cd os/StarryOS && tools/pipeline.sh <test_name>)`. Read results from `os/StarryOS/tests/results/<test_name>.txt`.
+4. **Run on StarryOS**: Execute the StarryOS pipeline via `bash ${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh <test_name>`. Read results from `os/StarryOS/tests/results/<test_name>.txt`.
 5. **Diff and classify**: Compare outputs line by line. For each divergence, classify it:
    - **WRONG_RESULT**: StarryOS returns a different value than Linux
    - **WRONG_ERRNO**: StarryOS returns a different error code

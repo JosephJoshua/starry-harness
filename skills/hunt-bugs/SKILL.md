@@ -147,8 +147,7 @@ Generate structured artifacts for every bug found and fixed.
 | Test sources | `os/StarryOS/tests/cases/test_*.c` |
 | Test results | `os/StarryOS/tests/results/` |
 | Known bugs registry | `os/StarryOS/tests/known.json` |
-| Pipeline (multi-arch) | `${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh --arch <arch>` |
-| Pipeline (legacy riscv64-only) | `os/StarryOS/tools/{compile,inject,run,pipeline}.sh` |
+| Pipeline | `${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh --arch <arch>` |
 | Bug reports | `docs/starry-reports/bugs/` |
 | Work journal | `docs/starry-reports/journal.md` |
 

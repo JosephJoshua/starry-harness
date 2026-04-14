@@ -69,13 +69,10 @@ Parse the output to extract the `BENCH` lines. Record baseline values in the com
 Execute the same benchmark program on StarryOS via the QEMU test pipeline.
 
 ```bash
-cd os/StarryOS && tools/pipeline.sh bench_<category>
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh bench_<category>
 ```
 
-This runs the standard compile-inject-run sequence:
-1. `tools/compile.sh bench_<category>` — Cross-compile the C benchmark for riscv64
-2. `tools/inject.sh bench_<category>` — Inject the binary into the ext4 rootfs via Docker
-3. `tools/run.sh bench_<category>` — Build kernel, boot QEMU, run binary, capture output
+This runs the full pipeline: cross-compile the C benchmark, inject the binary into the ext4 rootfs, build the kernel, boot QEMU, run the binary, and capture output.
 
 Extract the `BENCH` lines from `os/StarryOS/tests/results/bench_<category>.txt`.
 
@@ -124,7 +121,7 @@ Read the relevant kernel source to understand the hot path for each bottleneck.
 | Test harness header | `os/StarryOS/tests/cases/starry_test.h` |
 | Test sources | `os/StarryOS/tests/cases/bench_*.c` |
 | Test results | `os/StarryOS/tests/results/` |
-| Pipeline scripts | `os/StarryOS/tools/{compile,inject,run,pipeline}.sh` |
+| Pipeline script | `${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh` |
 | Benchmark reports | `docs/starry-reports/benchmarks/` |
 | Work journal | `docs/starry-reports/journal.md` |
 
@@ -158,7 +155,7 @@ Read the relevant kernel source to understand the hot path for each bottleneck.
 
 Run the same benchmark again on StarryOS after applying optimizations.
 
-1. Re-run via `tools/pipeline.sh bench_<category>`
+1. Re-run via `bash ${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh bench_<category>`
 2. Extract results and compare against the pre-optimization baseline
 3. Compute the improvement ratio: `improvement = (old_time - new_time) / old_time * 100`
 4. Verify correctness: the optimized benchmark must still produce correct output

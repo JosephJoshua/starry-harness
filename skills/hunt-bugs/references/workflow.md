@@ -103,10 +103,10 @@ If any test FAILs on Linux, that test is itself buggy. Fix or remove it before c
 ### Step 2: Run on StarryOS
 
 ```bash
-cd os/StarryOS && tools/pipeline.sh <name>
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh <name>
 ```
 
-This compiles the test, injects it into the rootfs disk image, boots StarryOS in QEMU, and captures output to `tests/results/test_<name>.txt`.
+This compiles the test, injects it into the rootfs disk image, builds the kernel, boots StarryOS in QEMU, and captures output to `tests/results/test_<name>.txt`.
 
 ### Step 3: Produce the comparison
 
@@ -182,7 +182,7 @@ Change the minimum amount of code necessary to make the failing tests pass while
 
 ```bash
 # Re-run the specific test
-cd os/StarryOS && tools/pipeline.sh <name>
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh <name>
 
 # Re-run Linux comparison
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/linux-ref-test.sh os/StarryOS/tests/cases/test_<name>.c /tmp/linux-ref.txt

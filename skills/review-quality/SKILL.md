@@ -107,7 +107,7 @@ Verify that tests exist for the changed functionality:
 
 - Check `os/StarryOS/tests/cases/` for a corresponding test file
 - If no test exists, flag it as a gap — the hunt-bugs skill should be invoked to generate one
-- If a test exists, run it via `tools/pipeline.sh` to verify it still passes
+- If a test exists, run it via `bash ${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh` to verify it still passes
 
 ### Step 5: Verdict
 

@@ -32,6 +32,6 @@
 
 ## Test Infrastructure
 - Test harness: `os/StarryOS/tests/cases/starry_test.h` (C test framework)
-- Pipeline: `os/StarryOS/tools/{compile,inject,run,pipeline}.sh`
+- Pipeline: `${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh`
 - Linux baseline: `scripts/linux-ref-test.sh` (Docker)
 - Stress testing: `scripts/stress-test.sh` (SMP sweeping, deadlock detection)

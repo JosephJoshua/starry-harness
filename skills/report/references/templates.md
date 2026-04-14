@@ -314,7 +314,7 @@ Note any patches required for static linking or missing features.
 Describe how the application was tested and what happened.
 
 **Test procedure**:
-1. Inject the binary into StarryOS rootfs via `os/StarryOS/tools/inject.sh`
+1. Inject the binary into StarryOS rootfs via `${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh`
 2. Boot StarryOS with QEMU
 3. <describe the test scenario: start the server, send requests, etc.>
 
