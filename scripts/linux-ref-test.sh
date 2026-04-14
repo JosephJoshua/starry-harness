@@ -31,7 +31,7 @@ IMAGE_NAME="starry-linux-ref:latest"
 if ! docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
   echo "[linux-ref] Building reference container..." >&2
   BUILD_CTX=$(mktemp -d)
-  trap "rm -rf '$BUILD_CTX'" EXIT
+  trap 'rm -rf "$BUILD_CTX"' EXIT
   docker build -t "$IMAGE_NAME" -f - "$BUILD_CTX" <<'DOCKERFILE'
 FROM ubuntu:24.04
 RUN apt-get update && apt-get install -y --no-install-recommends \

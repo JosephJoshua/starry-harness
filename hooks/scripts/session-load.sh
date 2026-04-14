@@ -27,7 +27,7 @@ if [ -f "$KNOWN" ]; then
   BUG_COUNT=$(python3 -c "
 import json, sys
 try:
-  d = json.load(open('$KNOWN'))
+  d = json.load(open(sys.argv[1]))
   syscalls = d.get('syscalls', d) if isinstance(d, dict) else d
   total = len(syscalls) if isinstance(syscalls, (list, dict)) else 0
   buggy = sum(1 for v in (syscalls.values() if isinstance(syscalls, dict) else syscalls) if isinstance(v, dict) and v.get('status', '') in ('buggy', 'broken', 'stub'))
@@ -35,7 +35,7 @@ try:
 except Exception as e:
   print(f'known.json parse error: {e}', file=sys.stderr)
   print('unknown')
-" 2>/dev/null || echo "unknown")
+" "$KNOWN" 2>/dev/null || echo "unknown")
   STATUS="$STATUS
 [starry-harness] Bug registry: $BUG_COUNT"
 fi
@@ -54,9 +54,9 @@ fi
 STRATEGY="$PROJECT_ROOT/docs/starry-reports/strategy.json"
 if [ -f "$STRATEGY" ]; then
   PRIORITIES=$(python3 -c "
-import json
+import json, sys
 try:
-  d = json.load(open('$STRATEGY'))
+  d = json.load(open(sys.argv[1]))
   t = d.get('targets', {})
   perf = 'MET' if t.get('performance', {}).get('met') else 'NOT MET'
   app = 'MET' if t.get('application', {}).get('met') else 'NOT MET'
@@ -67,7 +67,8 @@ try:
   plist = d.get('next_priorities', [])[:3]
   print(f'Targets: bugs={bugs} perf={perf} app={app}')
   if gaps:
-    print(f'Category gaps: {', '.join(gaps)}')
+    gap_str = ', '.join(gaps)
+    print(f'Category gaps: {gap_str}')
   if deep:
     print(f'Deep queue: {deep} targets waiting')
   if plist:
@@ -76,7 +77,7 @@ try:
       print(f'  → {p}')
 except Exception:
   pass
-" 2>/dev/null || true)
+" "$STRATEGY" 2>/dev/null || true)
   if [ -n "$PRIORITIES" ]; then
     STATUS="$STATUS
 [starry-harness] Strategy:

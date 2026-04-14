@@ -51,6 +51,7 @@ $BODY"
 fi
 
 # Prepend entry after the header (after the first ---)
+trap 'rm -f "$JOURNAL.tmp"' EXIT
 # Find line number of first "---" separator
 SEP_LINE=$(grep -n '^---$' "$JOURNAL" | head -1 | cut -d: -f1)
 

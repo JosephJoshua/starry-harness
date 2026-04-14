@@ -48,16 +48,11 @@ def find_rust_files(root: Path):
     return sorted(root.rglob('*.rs'))
 
 
-def extract_lock_sites(filepath: Path):
+def extract_lock_sites(filepath: Path, lines: list[str]):
     """Extract lock acquisition sites with their enclosing function."""
     sites = []
     current_fn = None
     current_fn_line = 0
-
-    try:
-        lines = filepath.read_text().splitlines()
-    except Exception:
-        return sites
 
     for i, line in enumerate(lines, 1):
         # Track current function
@@ -85,13 +80,9 @@ def extract_lock_sites(filepath: Path):
     return sites
 
 
-def extract_unsafe_blocks(filepath: Path):
+def extract_unsafe_blocks(filepath: Path, lines: list[str]):
     """Extract unsafe blocks and check for SAFETY comments."""
     blocks = []
-    try:
-        lines = filepath.read_text().splitlines()
-    except Exception:
-        return blocks
 
     current_fn = None
     for i, line in enumerate(lines, 1):
@@ -177,6 +168,8 @@ def find_cycles(graph):
 
 
 def main():
+    sys.setrecursionlimit(5000)
+
     # Parse arguments
     kernel_dir = sys.argv[1] if len(sys.argv) > 1 else os.environ.get('CLAUDE_PROJECT_DIR', '.')
     kernel_src = Path(kernel_dir) / 'os' / 'StarryOS' / 'kernel' / 'src'
@@ -206,8 +199,12 @@ def main():
     all_unsafe = []
     for src_dir in all_dirs:
         for rs_file in find_rust_files(src_dir):
-            all_sites.extend(extract_lock_sites(rs_file))
-            all_unsafe.extend(extract_unsafe_blocks(rs_file))
+            try:
+                lines = rs_file.read_text().splitlines()
+            except Exception:
+                continue
+            all_sites.extend(extract_lock_sites(rs_file, lines))
+            all_unsafe.extend(extract_unsafe_blocks(rs_file, lines))
 
     # Build graph
     graph = build_lock_graph(all_sites)

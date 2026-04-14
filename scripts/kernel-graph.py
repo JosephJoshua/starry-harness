@@ -154,9 +154,6 @@ def analyse_file(filepath: Path) -> dict:
             item = item.strip()
             if item:
                 cross_set.add(f"{crate_name}::{item}")
-    # Also catch simple `use starry_foo::bar;` (no braces).
-    for m in RE_CROSS_CALL.finditer(text):
-        cross_set.add(f"{m.group(1)}::{m.group(2)}")
     cross_calls = sorted(cross_set)
 
     types_used = sorted({m.group(1) for m in RE_KERNEL_TYPES.finditer(text)})

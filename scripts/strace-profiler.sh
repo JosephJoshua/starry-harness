@@ -26,6 +26,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "$PACKAGE" && ! "$PACKAGE" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "Error: invalid package name: $PACKAGE" >&2; exit 1
+fi
+
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-.}"
 KNOWN_JSON="$PROJECT_ROOT/os/StarryOS/tests/known.json"
 
@@ -46,6 +50,9 @@ fi
 echo "[strace-profiler] Running '$APP_CMD' under strace in Docker..." >&2
 
 # Run strace in summary mode (-c) and full trace (-o) with a 10s timeout
+# NOTE: APP_CMD is interpolated into the docker shell command. This is intentional —
+# users pass compound shell commands (e.g., "nginx -g 'daemon off;'"). This only
+# executes inside a disposable Docker container, not on the host.
 docker run --rm \
   ubuntu:24.04 \
   bash -c "

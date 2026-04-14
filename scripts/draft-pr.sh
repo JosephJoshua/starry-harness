@@ -47,22 +47,13 @@ PASS_COUNT="0"
 FAIL_COUNT="0"
 STATUS="unknown"
 if [[ -f "$KNOWN_JSON" ]] && command -v python3 &>/dev/null; then
-  PASS_COUNT=$(python3 -c "
-import json
-d = json.load(open('$KNOWN_JSON'))
-sc = d.get('syscalls', {}).get('$SYSCALL', {})
+  read -r PASS_COUNT FAIL_COUNT STATUS <<< "$(python3 -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+sc = d.get('syscalls', {}).get(sys.argv[2], {})
 r = sc.get('results', {})
-print(r.get('pass', 0))" 2>/dev/null || echo "0")
-  FAIL_COUNT=$(python3 -c "
-import json
-d = json.load(open('$KNOWN_JSON'))
-sc = d.get('syscalls', {}).get('$SYSCALL', {})
-r = sc.get('results', {})
-print(r.get('fail', 0))" 2>/dev/null || echo "0")
-  STATUS=$(python3 -c "
-import json
-d = json.load(open('$KNOWN_JSON'))
-print(d.get('syscalls', {}).get('$SYSCALL', {}).get('status', 'unknown'))" 2>/dev/null || echo "unknown")
+print(r.get('pass', 0), r.get('fail', 0), sc.get('status', 'unknown'))
+" "$KNOWN_JSON" "$SYSCALL" 2>/dev/null || echo "0 0 unknown")"
   TEST_RESULTS="Status: **${STATUS}** | Pass: ${PASS_COUNT} | Fail: ${FAIL_COUNT}"
 fi
 
@@ -70,16 +61,20 @@ fi
 REVIEW_CONFIDENCE="(no review data found)"
 if [[ -f "$STRATEGY_JSON" ]] && command -v python3 &>/dev/null; then
   REVIEW_CONFIDENCE=$(python3 -c "
-import json
-d = json.load(open('$STRATEGY_JSON'))
-r = d.get('reviews', {}).get('$BUG_ID', {})
+import json, sys
+d = json.load(open(sys.argv[1]))
+r = d.get('reviews', {}).get(sys.argv[2], {})
 if r:
     conf = r.get('confidence', 'unknown')
     rounds = r.get('total_rounds', '?')
-    details = ', '.join(f\"{x['type']}: {x['result']}\" for x in r.get('rounds', []))
+    detail_parts = []
+    for x in r.get('rounds', []):
+        detail_parts.append(str(x.get('type', '')) + ': ' + str(x.get('result', '')))
+    details = ', '.join(detail_parts)
     print(f'Confidence: **{conf}** ({rounds} rounds: {details})')
 else:
-    print('(no review data for this bug)')" 2>/dev/null || echo "(could not read strategy.json)")
+    print('(no review data for this bug)')
+" "$STRATEGY_JSON" "$BUG_ID" 2>/dev/null || echo "(could not read strategy.json)")
 fi
 
 # --- Git diff stat and log ---

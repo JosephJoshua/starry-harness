@@ -24,7 +24,10 @@ printf '╚═══════════════════════
 
 # ── Collect test list from known.json ───────────────────
 # Each line: syscall_name  tested  expected_pass  expected_fail  test_file
-mapfile -t SYSCALLS < <(
+SYSCALLS=()
+while IFS= read -r line; do
+  SYSCALLS+=("$line")
+done < <(
   python3 -c "
 import json, sys, os
 with open('$KNOWN_JSON') as f:

@@ -106,7 +106,7 @@ def glob_to_regex(glob_pattern):
     pattern = glob_pattern.replace('.', r'\.')
     pattern = pattern.replace('**/', '(.*/)?')
     pattern = pattern.replace('*', '[^/]*')
-    return re.compile(pattern)
+    return re.compile('^' + pattern)
 
 
 def scan_file(filepath, pattern, project_root):
@@ -180,14 +180,15 @@ def main():
     # Scan
     all_hits = {}
     total_hits = 0
+    all_rs_files = list(Path(project_root).rglob('*.rs'))
 
     for pattern in patterns:
         glob_re = glob_to_regex(pattern['file_glob'])
         pattern_hits = []
 
-        for rs_file in Path(project_root).rglob('*.rs'):
+        for rs_file in all_rs_files:
             rel = os.path.relpath(str(rs_file), project_root)
-            if glob_re.search(rel):
+            if glob_re.match(rel):
                 pattern_hits.extend(scan_file(rs_file, pattern, project_root))
 
         all_hits[pattern['id']] = {

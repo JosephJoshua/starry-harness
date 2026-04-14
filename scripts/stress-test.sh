@@ -17,6 +17,15 @@
 # Requires: bash 4+ (for associative arrays), CLAUDE_PROJECT_DIR set (or run from project root)
 set -euo pipefail
 
+if command -v timeout &>/dev/null; then
+  TIMEOUT_CMD="timeout"
+elif command -v gtimeout &>/dev/null; then
+  TIMEOUT_CMD="gtimeout"
+else
+  echo "[stress] Error: timeout (GNU coreutils) required. Install with: brew install coreutils" >&2
+  exit 1
+fi
+
 # ── Defaults ────────────────────────────────────────────────────
 TEST_NAME=""
 RUNS=50
@@ -89,7 +98,7 @@ for SMP in "${SMP_CONFIGS[@]}"; do
 
     # Capture output in variable — no temp file needed
     EXIT_CODE=0
-    QEMU_OUTPUT=$(timeout "${TIMEOUT}s" qemu-system-riscv64 \
+    QEMU_OUTPUT=$("$TIMEOUT_CMD" "${TIMEOUT}s" qemu-system-riscv64 \
       -machine virt -nographic -m "$MEMORY" -bios default \
       -smp "$SMP" \
       -kernel "$KERNEL_BIN" \
