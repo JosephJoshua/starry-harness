@@ -6,6 +6,40 @@ tests to write, concurrency risks, and stress-test configurations.
 
 All paths are relative to the workspace root `tgoskits/`.
 
+## Hidden Debug Features (already implemented, just need enabling)
+
+These features exist in the codebase but are compiled out by default. Enable them for audit sessions:
+
+### Lockdep — Deterministic deadlock detection
+```toml
+# os/StarryOS/kernel/Cargo.toml
+ax-kspin = { version = "0.3.1", features = ["lockdep"] }
+```
+Runtime lock ordering validator. Panics on first AB/BA deadlock, recursive acquisition, or out-of-order unlock. ~5% overhead. See `concurrency-reproduction.md` section 0.
+
+### Memtrack — Heap allocation tracking with backtraces
+```toml
+# os/StarryOS/kernel/Cargo.toml, under [features]:
+# Enable the existing memtrack feature:
+memtrack = ["ax-feat/dwarf", "ax-alloc/tracking", "dep:gimli"]
+
+# Then build with:
+# cargo starry build --arch riscv64 --features memtrack
+```
+Records every heap allocation with its full backtrace (function names + line numbers via DWARF). Exposes `/dev/memtrack` in the pseudofs for reading allocation state. Use for memory leak detection:
+1. Enable memtrack, boot kernel
+2. Read `/dev/memtrack` to get baseline allocation count and generation
+3. Run workload (e.g., 100 fork+exit cycles)
+4. Read `/dev/memtrack` again — any allocations from AFTER the baseline that survived = potential leak
+5. Backtraces tell you exactly which code path leaked
+
+### Alternative scheduler — CFS
+```toml
+# To test with CFS instead of round-robin, in ax-feat dependencies:
+# Replace "sched-rr" with "sched-cfs"
+```
+Useful for differential testing: if a bug appears with `sched-rr` but not `sched-cfs` (or vice versa), it's a scheduler-specific issue.
+
 ---
 
 ## 1. Scheduler

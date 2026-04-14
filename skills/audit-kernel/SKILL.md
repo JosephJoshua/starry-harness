@@ -88,13 +88,16 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/stress-test.sh <test_name> --memory 128M
 ```
 Reduced memory forces more page faults, OOM paths, and allocation failures.
 
+### Memtrack (deterministic memory leak detection)
+StarryOS has built-in allocation tracking with DWARF backtraces. Enable the `memtrack` feature in `os/StarryOS/kernel/Cargo.toml` to get `/dev/memtrack` — read it before and after a workload to find leaked allocations with exact backtraces showing where they were allocated. See `references/kernel-audit-areas.md` for details.
+
 ## Property-Based Tests
 
 For kernel internals without specs, test **properties** — invariants that must always hold:
 
 | Property | Test Design | Detects |
 |----------|-------------|---------|
-| No memory leak | Measure RSS before/after N fork+exit cycles | Memory leaks |
+| No memory leak | Enable memtrack, read /dev/memtrack before/after N fork+exit cycles | Memory leaks (with backtraces) |
 | No zombie accumulation | Count processes before/after fork+wait cycles | Process leaks |
 | Scheduler fairness | N threads each count iterations; ratio should be ~1:1 | Starvation |
 | Lock-free progress | Thread makes progress within bounded time | Deadlock/livelock |
