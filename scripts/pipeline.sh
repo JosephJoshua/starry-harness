@@ -165,8 +165,8 @@ command -v "$TIMEOUT_CMD" &>/dev/null || { echo "Error: timeout/gtimeout require
   2>&1 | tee "$RESULT_FILE" || true
 
 # ── Parse results ───────────────────────────────────────────────
-PASSES=$(grep -c '^PASS:' "$RESULT_FILE" 2>/dev/null || echo "0")
-FAILS=$(grep -c '^FAIL:' "$RESULT_FILE" 2>/dev/null || echo "0")
+PASSES=$(grep -c '^PASS:' "$RESULT_FILE" 2>/dev/null) || PASSES=0
+FAILS=$(grep -c '^FAIL:' "$RESULT_FILE" 2>/dev/null) || FAILS=0
 
 echo ""
 echo "============================="
