@@ -40,6 +40,12 @@ Run these commands via Bash:
    - `cargo xtask clippy --package starry-kernel`
    - `cargo starry build --arch riscv64`
 4. If any of these fail, fix the issue and retry. Do not ask the user unless stuck.
+5. Commit with a conventional commit message — no commit body:
+   - Format: `fix(<scope>): <short description in natural English>`
+   - Scope is the syscall or subsystem name (e.g., `prlimit64`, `mremap`, `signal`)
+   - Description is lowercase, imperative, under 70 chars
+   - Examples: `fix(prlimit64): apply hard limit raises instead of silent no-op`, `fix(mremap): read all 5 arguments from dispatch`
+   - No body, no footer, no trailing period
 
 ## Step 4: Convert Test (execute automatically)
 
@@ -59,6 +65,9 @@ Run these commands via Bash:
 4. Detect the test directory (it may be `test_program/` or `tests/` — check what actually exists, do not hardcode)
 5. Copy the converted test file into the test directory
 6. Verify it compiles within the repo: `cd <test_dir> && gcc -static -O2 -Wall -I. -o test_<name> test_<name>.c && ./test_<name>`
+7. Commit with a conventional commit message — no commit body:
+   - Format: `test(<scope>): <short description>`
+   - Example: `test(prlimit64): add limit raise and error code tests`
 
 ## Step 6: Generate PR Drafts (execute automatically, present to user)
 
