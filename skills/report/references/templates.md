@@ -372,7 +372,6 @@ StarryOS commit: <hash>
 ## Bug Discovery
 
 **Total bugs found**: <N> across <M> categories.
-**Competition target** (>=10 bugs across >=2 categories): <MET / NOT MET>
 
 ### By Category
 
@@ -402,8 +401,6 @@ List the 3-5 most significant bugs with one-line descriptions and links to their
 
 ## Performance Improvements
 
-**Competition target** (>=50% improvement in at least one area): <MET / NOT MET>
-
 | Benchmark | Before | After | Improvement | Report |
 |-----------|--------|-------|-------------|--------|
 | <name> | <value> | <value> | <ratio>x | [BENCH-NNN](benchmarks/BENCH-NNN-<name>.md) |
@@ -414,8 +411,6 @@ List the 3-5 most significant bugs with one-line descriptions and links to their
 Describe the single most impactful optimization in 2-3 sentences, with a link to the full benchmark report.
 
 ## Application Compatibility
-
-**Competition target** (>=1 mainstream application running): <MET / NOT MET>
 
 | Application | Status | Syscalls Needed | Gaps Remaining | Report |
 |-------------|--------|-----------------|----------------|--------|

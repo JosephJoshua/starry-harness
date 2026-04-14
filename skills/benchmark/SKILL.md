@@ -164,9 +164,7 @@ Run the same benchmark again on StarryOS after applying optimizations.
 4. Verify correctness: the optimized benchmark must still produce correct output
 5. Run `cargo xtask clippy --package starry-kernel` and `cargo fmt` to ensure code quality
 
-**Iterate** the Profile-Optimize-Bench loop until either:
-- The target (50% improvement in at least one area) is reached, or
-- Diminishing returns are observed and a different category should be tried
+**Iterate** the Profile-Optimize-Bench loop until diminishing returns are observed, then try a different category. There is no fixed target — keep improving as long as gains are measurable.
 
 ## Phase 7: Generate Report
 

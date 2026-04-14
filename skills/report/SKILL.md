@@ -150,12 +150,9 @@ When generating a competition-ready progress summary, follow this aggregation pr
 **Performance improvement metrics**:
 - List each benchmark with before/after numbers and improvement ratio
 - Highlight the largest improvement
-- Competition target: need 50% or greater improvement in at least one area
-
 **Application compatibility metrics**:
 - Applications tested and their current status (working, partial, blocked)
 - Syscalls unblocked by fixes
-- Competition target: need 1 or more mainstream application running
 
 **Feature metrics**:
 - New features or enhancements implemented
@@ -163,7 +160,7 @@ When generating a competition-ready progress summary, follow this aggregation pr
 
 ### Step 3: Produce the Summary
 
-Use the template from `references/templates.md` section "Progress Summary Template". Include concrete numbers, cross-references to individual reports, and an honest assessment of what remains to be done. Flag any competition targets that have not yet been met.
+Use the template from `references/templates.md` section "Progress Summary Template". Include concrete numbers, cross-references to individual reports, and an honest assessment of what remains to be done.
 
 ## Cross-Referencing
 

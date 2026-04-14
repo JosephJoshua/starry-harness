@@ -57,24 +57,36 @@ if [ -f "$STRATEGY" ]; then
 import json, sys
 try:
   d = json.load(open(sys.argv[1]))
-  t = d.get('targets', {})
-  perf = 'MET' if t.get('performance', {}).get('met') else 'NOT MET'
-  app = 'MET' if t.get('application', {}).get('met') else 'NOT MET'
-  bugs = 'MET' if t.get('bugs', {}).get('met') else 'NOT MET'
-  cats = d.get('effectiveness', {}).get('bug_categories', {})
-  gaps = [k for k, v in cats.items() if v == 0]
-  deep = len(d.get('analysis_queue', {}).get('needs_deep', []))
-  plist = d.get('next_priorities', [])[:3]
-  print(f'Targets: bugs={bugs} perf={perf} app={app}')
+  p = d.get('progress', {})
+  bugs = p.get('bugs', {})
+  perf = p.get('performance', {})
+  apps = p.get('applications', {})
+  print(f'Bugs: {bugs.get(\"found\", 0)} found, {bugs.get(\"fixed\", 0)} fixed, {bugs.get(\"categories_covered\", 0)}/5 categories')
+  gaps = bugs.get('category_gaps', [])
   if gaps:
     gap_str = ', '.join(gaps)
     print(f'Category gaps: {gap_str}')
+  bench_n = perf.get('benchmarks_run', 0)
+  if bench_n == 0:
+    print('Benchmarks: none yet')
+  else:
+    best = perf.get('best_improvement_pct')
+    area = perf.get('best_improvement_area', '?')
+    print(f'Benchmarks: {bench_n} run, best improvement: {best}% ({area})')
+  working = apps.get('working', [])
+  tested = apps.get('tested', [])
+  if not tested:
+    print('Apps: none tested yet')
+  else:
+    print(f'Apps: {len(tested)} tested, {len(working)} working')
+  deep = len(d.get('analysis_queue', {}).get('needs_deep', []))
   if deep:
     print(f'Deep queue: {deep} targets waiting')
+  plist = d.get('next_priorities', [])[:3]
   if plist:
     print('Top priorities:')
-    for p in plist:
-      print(f'  → {p}')
+    for pr in plist:
+      print(f'  > {pr}')
 except Exception:
   pass
 " "$STRATEGY" 2>/dev/null || true)

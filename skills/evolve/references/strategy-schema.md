@@ -123,29 +123,25 @@ Track progress toward competition goals. Each sub-object represents one goal.
 
 ```json
 {
-  "targets": {
+  "progress": {
     "bugs": {
-      "needed": 10,
-      "found": 7,
-      "categories_needed": 2,
+      "found": 47,
+      "fixed": 3,
       "categories_covered": 3,
-      "met": false
+      "category_gaps": ["concurrency", "memory"]
     },
     "performance": {
-      "needed": true,
-      "improvement_pct": null,
-      "area": null,
-      "met": false
+      "benchmarks_run": 0,
+      "best_improvement_pct": null,
+      "best_improvement_area": null
     },
-    "application": {
-      "needed": true,
-      "app_name": null,
-      "status": null,
-      "met": false
+    "applications": {
+      "tested": [],
+      "working": [],
+      "blocked": []
     },
     "features": {
-      "items": [],
-      "met": false
+      "items": []
     }
   }
 }
@@ -155,18 +151,17 @@ Track progress toward competition goals. Each sub-object represents one goal.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `needed` | `integer` | Minimum number of confirmed bugs required. Default `10`. |
-| `found` | `integer` | Number of confirmed bugs so far. |
-| `categories_needed` | `integer` | Minimum number of distinct bug categories required. Default `2`. |
+| `found` | `integer` | Number of confirmed bugs so far. No upper limit — keep finding more. |
+| `fixed` | `integer` | Number of bugs with verified fixes. |
 | `categories_covered` | `integer` | Number of categories in `effectiveness.bug_categories` with count > 0. |
-| `met` | `boolean` | `true` when `found >= needed` AND `categories_covered >= categories_needed`. |
+| `category_gaps` | `string[]` | Categories with 0 bugs found — these are priority areas. |
 
 ### `performance`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `needed` | `boolean` | Whether a performance improvement is required. Always `true`. |
-| `improvement_pct` | `float \| null` | Measured improvement percentage. `null` until a benchmark has been run. |
+| `benchmarks_run` | `integer` | Number of benchmark categories measured. |
+| `best_improvement_pct` | `float \| null` | Best measured improvement percentage. `null` until a benchmark has been run. |
 | `area` | `string \| null` | Subsystem or operation where improvement was measured (e.g., `"pipe_throughput"`, `"context_switch"`). `null` until set. |
 | `met` | `boolean` | `true` when `improvement_pct` is not null and represents a meaningful improvement (typically >= 10%). |
 
@@ -370,8 +365,8 @@ Computed ranked array of human-readable priority strings. Recompute after every 
 
 **Computation rules (apply in order, higher = more urgent):**
 
-1. **Unmet competition targets** come first. Check `targets.bugs.met`, `targets.performance.met`, `targets.application.met`, `targets.features.met`. For each unmet target, generate a priority entry describing what action to take.
-2. **Category gaps** next. If any category in `effectiveness.bug_categories` has count 0 and `targets.bugs.categories_covered < targets.bugs.categories_needed`, generate a priority to hunt bugs in that category.
+1. **Unexplored areas** come first. Check `progress.performance.benchmarks_run` (0 = no benchmarks yet), `progress.applications.tested` (empty = no apps tested), `progress.bugs.category_gaps` (non-empty = categories with no bugs found). Generate a priority for each gap.
+2. **Category gaps** next. For each category in `progress.bugs.category_gaps`, generate a priority to hunt bugs in that category.
 3. **Analysis queue depth**. For each item in `analysis_queue.needs_deep`, generate a priority entry sorted by `estimated_severity` (P0 first).
 4. **Coverage expansion**. If `coverage.untested_syscalls` is non-empty, generate sweep priorities grouped by syscall subsystem (fs, mm, net, process, signal, time).
 5. Limit the array to 10 entries. Drop lower-priority items beyond that.

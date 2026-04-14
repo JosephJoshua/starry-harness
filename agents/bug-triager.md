@@ -103,8 +103,8 @@ The competition requires bugs across at least 2 of these 5 categories, with 10+ 
 
 ### Summary
 - Total bugs: N
-- Categories covered: N/5 (need ≥2)
-- Competition target: 10+ bugs
+- Categories covered: N/5
+- Categories with 0 bugs: (list gaps)
 
 ### Bug Inventory
 

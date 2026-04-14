@@ -30,7 +30,7 @@ Restart Claude Code. The plugin loads automatically in any project.
 |-------|---------|---------|
 | **hunt-bugs** | "find bugs", "test syscalls", "compare with Linux" | Discover → Test → Compare → Fix → Report cycle with Docker Linux comparison |
 | **audit-kernel** | "audit kernel", "find deadlocks", "check for races" | Deep kernel internal audit: scheduler, memory, concurrency, signals, filesystem |
-| **benchmark** | "benchmark performance", "optimize IO" | Performance testing against Linux baselines, ≥50% improvement target |
+| **benchmark** | "benchmark performance", "optimize IO" | Performance testing against Linux baselines |
 | **test-app** | "run Nginx on StarryOS", "test app" | Linux application compatibility (Nginx, PostgreSQL, Python, rustc, etc.) |
 | **review-quality** | "review my changes", "check code quality" | Code quality gate: Rust idioms, API design, safety, framework reuse |
 | **report** | "generate report", "status report" | Structured reporting and journal system |

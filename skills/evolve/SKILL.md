@@ -27,7 +27,7 @@ At the start of every evolve session, load (or initialize) the strategy state:
 
 Compute priorities in this order:
 
-1. **Unmet competition targets** — benchmark (≥50% improvement), app-compat (≥1 app), bug categories with 0 coverage (concurrency, memory)
+1. **Category gaps and unexplored areas** — bug categories with 0 coverage (concurrency, memory), no benchmarks yet, no app-compat yet
 2. **Analysis queue** — targets flagged `needs_deep` from prior sweeps
 3. **High-value untested syscalls** — used by target apps (Nginx, PostgreSQL, Python) but not yet in `known.json`
 4. **Category gap filling** — prefer syscalls likely to yield bugs in underrepresented categories
@@ -160,9 +160,9 @@ Every 3-5 runs → REFLECT (run scanners, synthesize, update patterns)
     │
     ▼
 Check stopping conditions:
-    ├─ all competition targets met → generate final report, stop
     ├─ session budget exhausted (default 5 cycles) → stop
     ├─ no targets above minimum value → stop
+    ├─ human requests stop → stop
     └─ otherwise → loop back to "Compute priorities"
 ```
 
