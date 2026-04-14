@@ -1,0 +1,67 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "round": { "type": "integer" },
+    "target": { "type": "string", "description": "Syscall, subsystem, or bug ID being worked on" },
+    "mode": { "type": "string", "enum": ["sweep", "deep", "fix", "benchmark", "app-test"] },
+    "summary": { "type": "string" },
+    "evidence_tier": { "type": "integer", "minimum": 1, "maximum": 7, "description": "Highest evidence tier achieved (1=executable, 7=reasoning)" },
+    "linux_baseline": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Expected Linux behavior for each test point"
+    },
+    "tests_written": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Test files created or modified"
+    },
+    "commands_run": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Actual commands executed (compile, QEMU, docker, etc.)"
+    },
+    "diff_evidence": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Concrete differences: Linux output vs StarryOS output"
+    },
+    "deterministic_tool_results": {
+      "type": "object",
+      "description": "Output from lock-order-graph, pattern-scanner, kernel-graph, etc.",
+      "properties": {
+        "tools_run": { "type": "array", "items": { "type": "string" } },
+        "findings": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "root_cause": { "type": "string", "description": "Source file:line and explanation" },
+    "patch_summary": { "type": "string", "description": "What was changed and why" },
+    "patch_files": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Files modified by the fix"
+    },
+    "regression_results": {
+      "type": "object",
+      "properties": {
+        "ran": { "type": "boolean" },
+        "total_tests": { "type": "integer" },
+        "passed": { "type": "integer" },
+        "regressions": { "type": "integer" }
+      }
+    },
+    "reviewer_focus": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Specific areas the reviewer should scrutinize"
+    },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low", "unverified"] },
+    "next_action": { "type": "string" }
+  },
+  "required": [
+    "round", "target", "mode", "summary", "evidence_tier",
+    "linux_baseline", "tests_written", "commands_run", "diff_evidence",
+    "root_cause", "patch_summary", "reviewer_focus", "confidence", "next_action"
+  ]
+}
