@@ -49,8 +49,14 @@ RE_DISPATCH = re.compile(
 # Regex: `pub fn sys_<name>` at start of line.
 RE_HANDLER_DEF = re.compile(r"^pub fn (sys_\w+)\s*\(", re.MULTILINE)
 
-# Regex: lock / read-guard / write-guard acquisitions.
+# Regex: lock / read-guard / write-guard acquisitions on named objects.
+# We look for `.lock()`, `.read()`, `.write()` but filter obvious I/O false positives.
 RE_LOCK = re.compile(r"(\w[\w.]*(?:\(\))?)\s*\.\s*(lock|read|write)\s*\(")
+# Receiver names that are almost certainly I/O, not lock operations.
+LOCK_FALSE_POSITIVES = {
+    "f", "file", "dst", "src", "buf", "new()", "reader", "writer",
+    "in_file", "out_file", "self",
+}
 
 # Regex: unsafe blocks or expressions.
 RE_UNSAFE = re.compile(r"\bunsafe\b")
@@ -131,7 +137,11 @@ def analyse_file(filepath: Path) -> dict:
     """Extract locks, unsafe count, cross-module calls, and kernel types from a file."""
     text = filepath.read_text()
 
-    locks = sorted({f"{m.group(1)}.{m.group(2)}()" for m in RE_LOCK.finditer(text)})
+    locks = sorted({
+        f"{m.group(1)}.{m.group(2)}()"
+        for m in RE_LOCK.finditer(text)
+        if m.group(1) not in LOCK_FALSE_POSITIVES
+    })
     unsafe_count = len(RE_UNSAFE.findall(text))
 
     # Collect cross-module references: both qualified paths and `use` imports.
