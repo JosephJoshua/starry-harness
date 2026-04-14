@@ -32,33 +32,59 @@ RUNS=50
 SMP_LIST="1,2,4"
 TIMEOUT=60
 MEMORY="1G"
+ARCH="riscv64"
 
 # ── Parse args ──────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --runs)   RUNS="$2"; shift 2 ;;
-    --smp)    SMP_LIST="$2"; shift 2 ;;
+    --runs)    RUNS="$2"; shift 2 ;;
+    --smp)     SMP_LIST="$2"; shift 2 ;;
     --timeout) TIMEOUT="$2"; shift 2 ;;
-    --memory) MEMORY="$2"; shift 2 ;;
-    -*)       echo "Unknown flag: $1" >&2; exit 1 ;;
-    *)        TEST_NAME="$1"; shift ;;
+    --memory)  MEMORY="$2"; shift 2 ;;
+    --arch)    ARCH="$2"; shift 2 ;;
+    -*)        echo "Unknown flag: $1" >&2; exit 1 ;;
+    *)         TEST_NAME="$1"; shift ;;
   esac
 done
 
 if [ -z "$TEST_NAME" ]; then
-  echo "Usage: stress-test.sh <test_name> [--runs N] [--smp LIST] [--timeout SEC] [--memory SIZE]" >&2
+  echo "Usage: stress-test.sh <test_name> [--runs N] [--smp LIST] [--timeout SEC] [--memory SIZE] [--arch ARCH]" >&2
   exit 1
 fi
+
+# ── Arch → QEMU mapping ────────────────────────────────────────
+case "$ARCH" in
+  riscv64)
+    QEMU_BIN="qemu-system-riscv64"
+    QEMU_MACHINE="-machine virt -bios default"
+    ;;
+  aarch64)
+    QEMU_BIN="qemu-system-aarch64"
+    QEMU_MACHINE="-machine virt -cpu cortex-a72"
+    ;;
+  x86_64)
+    QEMU_BIN="qemu-system-x86_64"
+    QEMU_MACHINE="-machine q35 -cpu qemu64"
+    ;;
+  loongarch64)
+    QEMU_BIN="qemu-system-loongarch64"
+    QEMU_MACHINE="-machine virt"
+    ;;
+  *)
+    echo "[stress] Error: unknown arch '$ARCH'. Supported: riscv64, aarch64, x86_64, loongarch64" >&2
+    exit 1
+    ;;
+esac
 
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-.}"
 STARRY_DIR="$PROJECT_ROOT/os/StarryOS"
 RESULTS_DIR="$STARRY_DIR/tests/results"
 mkdir -p "$RESULTS_DIR"
 
-JSON_OUT="$RESULTS_DIR/stress_${TEST_NAME}.json"
+JSON_OUT="$RESULTS_DIR/stress_${TEST_NAME}_${ARCH}.json"
 
 echo "╔═══════════════════════════════════════════════════╗"
-echo "║  stress-test: $TEST_NAME"
+echo "║  stress-test: $TEST_NAME ($ARCH)"
 echo "║  runs=$RUNS  smp=[$SMP_LIST]  timeout=${TIMEOUT}s  mem=$MEMORY"
 echo "╚═══════════════════════════════════════════════════╝"
 echo ""
@@ -98,8 +124,8 @@ for SMP in "${SMP_CONFIGS[@]}"; do
 
     # Capture output in variable — no temp file needed
     EXIT_CODE=0
-    QEMU_OUTPUT=$("$TIMEOUT_CMD" "${TIMEOUT}s" qemu-system-riscv64 \
-      -machine virt -nographic -m "$MEMORY" -bios default \
+    QEMU_OUTPUT=$("$TIMEOUT_CMD" "${TIMEOUT}s" $QEMU_BIN \
+      $QEMU_MACHINE -nographic -m "$MEMORY" \
       -smp "$SMP" \
       -kernel "$KERNEL_BIN" \
       -device virtio-blk-pci,drive=disk0 \
