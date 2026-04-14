@@ -38,8 +38,9 @@ At the start of every evolve session:
 1. Read `docs/starry-reports/strategy.json` — if it doesn't exist, generate it from `os/StarryOS/tests/known.json` and the kernel source
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/change-tracker.py` — check what kernel files changed since last run
 3. Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/pattern-scanner.py` — any new pattern hits?
-4. Read `docs/starry-reports/journal.md` for recent activity
-5. Present current status: category gaps, analysis queue, change-tracker findings
+4. Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/abi-check.py` — any syscall arg count mismatches vs Linux?
+5. Read `docs/starry-reports/journal.md` for recent activity
+6. Present current status: category gaps, analysis queue, ABI mismatches, change-tracker findings
 6. In human-driven mode: present the top 5 recommended targets and ask
 7. In autonomous mode: pick the top target and begin
 
@@ -167,6 +168,12 @@ Reads rules from `docs/starry-reports/patterns.json`. Default 9 patterns includi
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/kernel-graph.py --json /tmp/kernel-graph.json
 ```
 Maps all 204 syscalls to subsystems, files, locks, unsafe blocks. Shows which untested syscalls touch the most shared state.
+
+### ABI Arg Count Checker
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/abi-check.py --json /tmp/abi-check.json
+```
+Compares StarryOS's `uctx.argN()` usage per syscall against Linux kernel `SYSCALL_DEFINE` arities. Catches mismatches where StarryOS reads the wrong number of arguments (e.g., 5 args when Linux passes 6). Run at startup and before writing any new syscall test.
 
 ### Change Tracker
 ```bash

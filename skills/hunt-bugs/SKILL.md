@@ -73,24 +73,33 @@ TEST_END
 
 ## Phase 3: Linux Comparison
 
-Run the test on both Linux (Docker) and StarryOS to find behavioral divergences.
+Run the test on Linux FIRST, then StarryOS. **Linux must pass before StarryOS results are trusted.** If the test fails on Linux, the test itself is buggy — fix the test, do not proceed to StarryOS.
 
-**Dispatch the linux-comparator agent** for this phase. It will:
-1. Run `${CLAUDE_PLUGIN_ROOT}/scripts/linux-ref-test.sh` for the Docker baseline
-2. Run the StarryOS pipeline (`${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh`)
-3. Produce a structured comparison report
-
-If not using the agent, run manually:
+**Step 1 — Linux baseline (MANDATORY FIRST):**
 ```bash
-# Linux baseline (add --arch riscv64 for cross-arch comparison)
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/linux-ref-test.sh os/StarryOS/tests/cases/test_<name>.c /tmp/linux-ref.txt
+```
+Inspect the output. Every test must PASS. If any FAIL → the test has a bug (wrong assertion, wrong ABI, wrong expected value). Fix it before continuing.
 
-# StarryOS (supports --arch riscv64|aarch64|x86_64|loongarch64)
+**Step 2 — StarryOS (only after Linux passes):**
+```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.sh <name> --arch riscv64
+```
 
-# Compare
+**Step 3 — Compare:**
+```bash
 diff /tmp/linux-ref.txt os/StarryOS/tests/results/test_<name>.txt
 ```
+
+**Why Linux-first matters**: A test that passes on both Linux and StarryOS might have a bug that matches a StarryOS bug (e.g., reading 5 syscall args when Linux expects 6). Running on Linux first catches test bugs before they produce false negatives.
+
+**ABI cross-check**: Before writing tests for a syscall, run the ABI checker to verify StarryOS reads the correct number of arguments:
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/abi-check.py
+```
+If the target syscall has an ABI mismatch, fix the arg count in the kernel dispatch before writing tests.
+
+**Man page vs kernel ABI warning**: Man pages document the C library API, not the raw kernel ABI. For syscalls with complex argument passing (preadv2, pwritev2, mmap on 32-bit, etc.), check the Linux kernel source (`SYSCALL_DEFINE` macros) or musl source (`src/*/`) for the actual ABI. The harness's `man-lookup.sh` is a starting point, not the final authority on argument layout.
 
 ## Phase 4: Root Cause Analysis
 
