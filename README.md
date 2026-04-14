@@ -34,6 +34,7 @@ Restart Claude Code. The plugin loads automatically in any project.
 | **test-app** | "run Nginx on StarryOS", "test app" | Linux application compatibility (Nginx, PostgreSQL, Python, rustc, etc.) |
 | **review-quality** | "review my changes", "check code quality" | Code quality gate: Rust idioms, API design, safety, framework reuse |
 | **report** | "generate report", "status report" | Structured reporting and journal system |
+| **evolve** | "run autonomously", "what should I work on next" | Self-evolving loop: target selection, sweep/deep modes, adaptive review pipeline |
 
 ## Agents
 

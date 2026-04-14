@@ -12,19 +12,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 .claude-plugin/plugin.json    ← Manifest (name: "starry-harness")
-skills/                       ← 5 skills (auto-discovered SKILL.md files)
+skills/                       ← 7 skills (auto-discovered SKILL.md files)
   hunt-bugs/                  ← Core bug hunting cycle
+  audit-kernel/               ← Deep kernel internal audit (scheduler, memory, concurrency)
   benchmark/                  ← Performance benchmarking vs Linux
   test-app/                   ← Linux application compatibility
   review-quality/             ← Code quality gate
   report/                     ← Structured reporting + journal
+  evolve/                     ← Self-evolving loop: target selection, sweep/deep, adaptive review
 agents/                       ← 3 agent definitions (.md files)
   linux-comparator.md         ← Docker Linux test runner + diff
   kernel-reviewer.md          ← Code quality reviewer (read-only)
   bug-triager.md              ← Bug classification + prioritization
 hooks/
   hooks.json                  ← SessionStart hook config
-  scripts/session-load.sh     ← Loads journal + bug registry at session start
+  scripts/session-load.sh     ← Loads journal + bug registry + strategy at session start
 scripts/                      ← Shell infrastructure
   linux-ref-test.sh           ← Compile + run C test in Docker Linux
   man-lookup.sh               ← Fetch syscall man pages

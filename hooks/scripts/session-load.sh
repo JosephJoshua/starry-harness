@@ -50,6 +50,40 @@ if [ -d "$REPORT_DIR" ]; then
 [starry-harness] Reports: ${BUG_REPORTS} bug, ${BENCH_REPORTS} benchmark, ${APP_REPORTS} app-compat"
 fi
 
+# Strategy priorities
+STRATEGY="$PROJECT_ROOT/docs/starry-reports/strategy.json"
+if [ -f "$STRATEGY" ]; then
+  PRIORITIES=$(python3 -c "
+import json
+try:
+  d = json.load(open('$STRATEGY'))
+  t = d.get('targets', {})
+  perf = 'MET' if t.get('performance', {}).get('met') else 'NOT MET'
+  app = 'MET' if t.get('application', {}).get('met') else 'NOT MET'
+  bugs = 'MET' if t.get('bugs', {}).get('met') else 'NOT MET'
+  cats = d.get('effectiveness', {}).get('bug_categories', {})
+  gaps = [k for k, v in cats.items() if v == 0]
+  deep = len(d.get('analysis_queue', {}).get('needs_deep', []))
+  plist = d.get('next_priorities', [])[:3]
+  print(f'Targets: bugs={bugs} perf={perf} app={app}')
+  if gaps:
+    print(f'Category gaps: {', '.join(gaps)}')
+  if deep:
+    print(f'Deep queue: {deep} targets waiting')
+  if plist:
+    print('Top priorities:')
+    for p in plist:
+      print(f'  → {p}')
+except Exception:
+  pass
+" 2>/dev/null || true)
+  if [ -n "$PRIORITIES" ]; then
+    STATUS="$STATUS
+[starry-harness] Strategy:
+$PRIORITIES"
+  fi
+fi
+
 if [ -n "$STATUS" ]; then
   echo "$STATUS"
 fi
