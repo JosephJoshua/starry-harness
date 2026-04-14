@@ -1,5 +1,5 @@
 {
-  "description": "StarryOS harness lifecycle hooks: load journal context on session start",
+  "description": "StarryOS harness lifecycle hooks",
   "hooks": {
     "SessionStart": [
       {
@@ -9,6 +9,18 @@
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-load.sh",
             "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before stopping, verify the review discipline was followed for any bugs found or fixes proposed in this session. Check:\n\n1. Was every bug finding backed by tier 1-5 evidence (executable test, source-level proof, property violation, differential behavior, or Linux source comparison)? Tier 6-7 (pattern guess, LLM reasoning) findings must NOT be reported as confirmed.\n\n2. For any proposed fix: was the adaptive review pipeline followed? At minimum: (a) self-check against man page, (b) kernel-reviewer agent dispatched for fresh-context review, (c) regression check run. For P0/P1 bugs: independent re-derivation should have been attempted.\n\n3. Were results recorded? Bug reports written to docs/starry-reports/bugs/, journal updated, known.json updated, strategy.json updated.\n\nIf any of these were skipped, say 'block' and explain what's missing. If all were followed (or no bugs/fixes were produced this session), say 'approve'.",
+            "timeout": 30
           }
         ]
       }

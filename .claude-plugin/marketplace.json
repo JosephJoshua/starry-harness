@@ -11,7 +11,7 @@
       "name": "starry-harness",
       "source": "./",
       "description": "Bug hunting, performance benchmarking, app compatibility testing, code quality review, and structured reporting for StarryOS",
-      "version": "0.3.0"
+      "version": "0.3.1"
     }
   ]
 }

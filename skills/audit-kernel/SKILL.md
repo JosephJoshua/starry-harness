@@ -36,7 +36,8 @@ Unlike hunt-bugs (which starts from man page specs), kernel auditing starts from
 7. **Run on StarryOS** — Execute via the QEMU pipeline
 8. **For concurrency bugs** — Use `${CLAUDE_PLUGIN_ROOT}/scripts/stress-test.sh` with SMP sweeping
 9. **Classify evidence tier** — Only report if tier 1-5
-10. **Report** — Bug report + journal entry
+10. **If proposing a fix** → run the MANDATORY adaptive review pipeline (see `evolve/references/review-pipeline.md`): self-check → kernel-reviewer → independent re-derivation (for P0/P1) → regression check. Do NOT claim a fix is done until confidence is "high".
+11. **Report** — Bug report + journal entry + update strategy.json reviews section
 
 ## Test Correctness Protocol
 

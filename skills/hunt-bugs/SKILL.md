@@ -103,19 +103,30 @@ For each test that diverges from Linux:
    - Concurrency, Memory, Safety, Semantic, or Correctness
 5. **Record in known.json**: Update `os/StarryOS/tests/known.json` with findings
 
-## Phase 5: Fix
+## Phase 5: Fix (MANDATORY review pipeline)
 
-Implement the fix following kernel code quality standards.
+Implement the fix, then run it through the **adaptive review pipeline**. Do NOT skip any step. Do NOT report a fix as "done" until the pipeline converges. See `evolve/references/review-pipeline.md` for the full protocol.
 
+**Minimum rounds (always, non-negotiable):**
 1. **Write the fix** in the relevant kernel source file
-2. **Dispatch kernel-reviewer agent** to verify:
-   - Proper Rust idioms (Result/Option, no unwrap, proper error propagation)
-   - Code reuse (use existing starry-vm/starry-process/starry-signal abstractions)
-   - Safety (user pointer validation, lock discipline, unsafe comments)
-   - API consistency with adjacent syscall handlers
-3. **Re-run the test** via the StarryOS pipeline to verify the fix
-4. **Re-run Linux comparison** to confirm behavior now matches
-5. **Run regression**: `cargo xtask clippy --package starry-kernel` and `cargo fmt`
+2. **Self-check**: Re-read the fix against the man page and the test output. Does it address the root cause?
+3. **Dispatch kernel-reviewer agent** (fresh context, no anchoring) to verify:
+   - Proper Rust idioms, code reuse, safety, API consistency
+4. **If kernel-reviewer finds critical issues** → revise the fix, restart from step 2
+5. **Re-run the test** via the StarryOS pipeline to verify the fix
+6. **Re-run Linux comparison** to confirm behavior now matches
+7. **Run regression**: `cargo xtask clippy --package starry-kernel` and `cargo fmt`
+
+**Additional rounds for P0/P1 bugs:**
+8. **Independent re-derivation**: Dispatch a separate agent (or Codex if available) with ONLY the bug description + man page (NOT the proposed fix). Compare the independently-derived fix against the proposed one.
+9. **If fixes disagree** → dispatch a reconciliation agent to synthesize, then re-review
+10. **Record review rounds** in `strategy.json` reviews section with confidence level
+
+**Only report the fix after:**
+- All minimum rounds pass (steps 1-7)
+- For P0/P1: at least one independent re-derivation (step 8)
+- Confidence is "high" (all rounds agree, 0 regressions)
+- If confidence is "medium" or "low" → flag for human review, do NOT claim fixed
 
 ## Phase 6: Report
 
@@ -124,7 +135,8 @@ Generate structured artifacts for every bug found and fixed.
 1. **Bug report**: Write to `docs/starry-reports/bugs/BUG-NNN-<syscall>.md` using template from `references/workflow.md`
 2. **Journal entry**: Run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/journal-entry.sh BUG "<title>" "<body>"`
 3. **Update known.json**: Mark syscall status as `fixed`, `buggy`, `broken`, or `stub`
-4. **Update triage**: If multiple bugs found, dispatch bug-triager agent for re-prioritization
+4. **Update strategy.json**: Record review rounds and confidence in the reviews section
+5. **Update triage**: If multiple bugs found, dispatch bug-triager agent for re-prioritization
 
 ## Key File Locations
 
