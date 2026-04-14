@@ -97,13 +97,52 @@ Structure documented in `references/strategy-schema.md`. Key sections:
 - `reviews`: per-bug review round history and confidence
 - `next_priorities`: computed ranked list
 
+## Deterministic Tooling
+
+The evolve skill relies on deterministic scripts for analysis — the LLM interprets results, but the scanning itself is reproducible and hallucination-free.
+
+### Lock Order Graph
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lock-order-graph.py --json /tmp/lock-order.json
+```
+Parses all `.lock()`, `.read()`, `.write()` calls in the kernel source, builds a directed graph of lock orderings, and detects cycles (potential deadlocks). Any cycle is a concrete finding — the LLM decides whether to investigate, but the cycle detection is fully deterministic.
+
+Run this during sweep mode. Cycles go directly into `analysis_queue.needs_deep` with category hint "concurrency."
+
+### Pattern Scanner
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/pattern-scanner.py --json /tmp/pattern-hits.json
+```
+Reads grep/regex rules from `docs/starry-reports/patterns.json` and scans the kernel source for matches. Default patterns include: negative-to-unsigned casts, Ok(0) stubs, catch-all match arms, TODO/FIXME, ignored flags, unsafe without SAFETY comments.
+
+**Pattern evolution**: When a new bug is found, add a concrete grep rule to `patterns.json` that detects the same class of bug. The scanner finds new instances deterministically. The LLM triages the hits (real bug vs false positive) but does not perform the scanning.
+
+### Unsafe Block Auditor
+The lock-order-graph script also reports unsafe blocks missing `// SAFETY:` comments. These are concrete safety audit targets.
+
+## Reflect Phase (cross-run synthesis)
+
+Every 3-5 runs within a session, the loop pauses to reflect. This is not cross-session — it happens within a long-running session between runs.
+
+**Reflect steps:**
+1. Run the pattern scanner — any new hits since last reflect?
+2. Run the lock order graph — any new cycles since last reflect?
+3. Read the last N runs' results from strategy.json
+4. Identify cross-cutting patterns (e.g., "3 bugs all involve `as _` casts in different syscalls")
+5. Generate new pattern scanner rules from discovered bugs (deterministic grep rules, not LLM guesses)
+6. Update `docs/starry-reports/patterns.json` with new rules
+7. Update priorities based on what techniques actually worked
+8. Append insights to `docs/starry-reports/insights.md`
+
+Budget: ~2K tokens. Saves tokens downstream by improving target selection and catching pattern-scannable bugs without full deep dives.
+
 ## Session Flow
 
 ```
-Load strategy.json
+Load strategy.json + run pattern scanner + run lock-order graph
     │
     ▼
-Compute priorities
+Compute priorities (incorporating deterministic scan results)
     │
     ├─ autonomous → pick top target
     └─ human → present top 5, ask
@@ -115,6 +154,9 @@ Is target a sweep or deep?
     │
     ▼
 Update strategy.json (coverage, effectiveness, queue)
+    │
+    ▼
+Every 3-5 runs → REFLECT (run scanners, synthesize, update patterns)
     │
     ▼
 Check stopping conditions:
@@ -129,11 +171,18 @@ Check stopping conditions:
 To avoid runaway sessions:
 - Sweep: ~2K tokens per target (read handler, quick pattern check)
 - Deep: ~15K tokens per target (full cycle with review)
+- Reflect: ~2K tokens (run deterministic tools, synthesize)
 - Default session budget: 5 deep cycles or 2 sweeps + 3 deeps
 - Early termination: if a target shows 0 divergences in sweep, skip it in <500 tokens
+- Deterministic tools (pattern scanner, lock graph) run as Bash and cost 0 LLM tokens
 
 ## Additional Resources
 
 ### Reference Files
 - **`references/review-pipeline.md`** — Full adaptive review protocol with convergence rules
 - **`references/strategy-schema.md`** — Complete strategy.json schema and field definitions
+
+### Deterministic Scripts
+- **`${CLAUDE_PLUGIN_ROOT}/scripts/lock-order-graph.py`** — Static lock ordering analysis + cycle detection + unsafe audit
+- **`${CLAUDE_PLUGIN_ROOT}/scripts/pattern-scanner.py`** — Regex-based bug pattern scanner with evolving rule set
+- **`${CLAUDE_PLUGIN_ROOT}/scripts/stress-test.sh`** — Multi-run SMP-sweeping test runner
