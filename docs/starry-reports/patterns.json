@@ -1,0 +1,121 @@
+[
+  {
+    "id": "negative-to-unsigned-cast",
+    "description": "i64/isize argument cast to u64/usize without negativity check \u2014 silent wraparound",
+    "grep_pattern": "as u64|as usize",
+    "file_glob": "os/StarryOS/kernel/src/syscall/**/*.rs",
+    "exclude_pattern": "if\\s.*[<>]=?\\s*0|\\.is_negative|checked_|\\.try_into",
+    "context_lines": 2,
+    "severity": "P1",
+    "category": "correctness",
+    "discovered_from": [
+      "ftruncate",
+      "pwrite64",
+      "lseek"
+    ]
+  },
+  {
+    "id": "ok-zero-stub",
+    "description": "Syscall handler returns Ok(0) without doing any real work \u2014 silent stub",
+    "grep_pattern": "Ok\\(0\\)",
+    "file_glob": "os/StarryOS/kernel/src/syscall/**/*.rs",
+    "exclude_pattern": "fn sys_getpid|fn sys_gettid|fn sys_getuid|fn sys_getgid|fn sys_geteuid|fn sys_getegid",
+    "context_lines": 5,
+    "severity": "P2",
+    "category": "semantic",
+    "discovered_from": [
+      "flock",
+      "prctl"
+    ]
+  },
+  {
+    "id": "catch-all-match-arm",
+    "description": "Match arm with _ => Ok(0) or _ => {} that silently ignores unknown values",
+    "grep_pattern": "_\\s*=>\\s*(Ok\\(0\\)|0|\\{\\s*\\})",
+    "file_glob": "os/StarryOS/kernel/src/syscall/**/*.rs",
+    "exclude_pattern": "// handled|// intentional|exhaustive",
+    "context_lines": 3,
+    "severity": "P2",
+    "category": "semantic",
+    "discovered_from": [
+      "fcntl_catchall",
+      "clock_gettime"
+    ]
+  },
+  {
+    "id": "todo-fixme-hack",
+    "description": "TODO/FIXME/HACK comment indicating incomplete implementation",
+    "grep_pattern": "TODO|FIXME|HACK|XXX|STUB",
+    "file_glob": "os/StarryOS/kernel/src/**/*.rs",
+    "exclude_pattern": null,
+    "context_lines": 1,
+    "severity": "P3",
+    "category": "correctness",
+    "discovered_from": []
+  },
+  {
+    "id": "ignored-flags-parameter",
+    "description": "Function parameter named 'flags' or '_flags' that is never used in the body",
+    "grep_pattern": "_flags\\s*:|flags\\s*:.*\\bu32\\b|flags\\s*:.*\\bi32\\b",
+    "file_glob": "os/StarryOS/kernel/src/syscall/**/*.rs",
+    "exclude_pattern": "flags\\.(contains|bits|is_empty|intersects)|from_bits|flags\\s*[!=<>]|if flags",
+    "context_lines": 10,
+    "severity": "P2",
+    "category": "semantic",
+    "discovered_from": [
+      "copy_file_range"
+    ]
+  },
+  {
+    "id": "unsafe-without-safety-comment",
+    "description": "unsafe block without a preceding // SAFETY: comment",
+    "grep_pattern": "\\bunsafe\\s*\\{",
+    "file_glob": "os/StarryOS/kernel/src/**/*.rs",
+    "exclude_pattern": "unsafe fn |// SAFETY:",
+    "context_lines": 3,
+    "severity": "P2",
+    "category": "safety",
+    "discovered_from": [
+      "prlimit64"
+    ]
+  },
+  {
+    "id": "read-at-write-at-mismatch",
+    "description": "Copy-paste error: read_at called in a write path or write_at in a read path",
+    "grep_pattern": "read_at|write_at",
+    "file_glob": "os/StarryOS/kernel/src/syscall/fs/io.rs",
+    "exclude_pattern": null,
+    "context_lines": 5,
+    "severity": "P0",
+    "category": "correctness",
+    "discovered_from": [
+      "pwritev2"
+    ]
+  },
+  {
+    "id": "assert-unsigned-on-u32",
+    "description": "assert_unsigned or similar check rejects valid u32 values >= 2^31 by treating them as signed",
+    "grep_pattern": "assert_unsigned|as i32.*< 0|\\.is_negative",
+    "file_glob": "os/StarryOS/kernel/src/**/*.rs",
+    "exclude_pattern": "i64|isize|signed",
+    "context_lines": 3,
+    "severity": "P1",
+    "category": "correctness",
+    "discovered_from": [
+      "futex"
+    ]
+  },
+  {
+    "id": "ab-ba-lock-pattern",
+    "description": "Two let-bound lock guards in same function \u2014 potential AB/BA deadlock if another function reverses the order",
+    "grep_pattern": "let\\s+(?:mut\\s+)?\\w+\\s*=.*\\.lock\\(\\)",
+    "file_glob": "os/StarryOS/kernel/src/**/*.rs",
+    "exclude_pattern": "drop\\(|#\\[should_panic\\]|test",
+    "context_lines": 8,
+    "severity": "P1",
+    "category": "concurrency",
+    "discovered_from": [
+      "shm_deadlock"
+    ]
+  }
+]

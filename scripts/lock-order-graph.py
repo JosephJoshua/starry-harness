@@ -29,19 +29,20 @@ try:
 except ImportError:
     TREE_SITTER_AVAILABLE = False
 
-# Compiled regexes
+# Compiled regexes (fallback when tree-sitter not available)
 LOCK_RE = re.compile(r'(\w[\w.()]*)\.(lock|read|write)\(\)')
 FN_RE = re.compile(r'^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)')
 UNSAFE_RE = re.compile(r'\bunsafe\b')
 SAFETY_COMMENT_RE = re.compile(r'//\s*SAFETY:', re.IGNORECASE)
-
-# Patterns for Rust ownership analysis
 LET_BIND_RE = re.compile(r'let\s+(?:mut\s+)?(\w+)\s*=.*\.(lock|read|write)\(\)')
 DROP_RE = re.compile(r'drop\(\s*(\w+)\s*\)')
-SCOPE_OPEN_RE = re.compile(r'\{')
-SCOPE_CLOSE_RE = re.compile(r'\}')
-# Temporary: lock().method() on same line with no let binding
 TEMP_LOCK_RE = re.compile(r'(?<!let\s)(?<!let\smut\s)\w[\w.()]*\.(lock|read|write)\(\)\s*\.')
+
+# Regex false-positive filters: receivers that are I/O objects, not locks
+IO_RECEIVERS = re.compile(
+    r'\b(file|buf|reader|writer|src|dst|iov|cursor|socket|stream|pipe|cons|prod|'
+    r'f|fd|data|bytes|input|output|response|request)\b', re.IGNORECASE
+)
 
 
 def find_rust_files(root: Path):
@@ -50,17 +51,23 @@ def find_rust_files(root: Path):
 
 
 def extract_lock_sites(filepath: Path, lines: list[str]):
-    """Extract lock acquisition sites with ownership analysis.
+    """Regex fallback: extract lock acquisition sites with heuristic ownership analysis.
 
-    Each site includes whether the lock guard is:
-    - 'held': bound to a let variable (alive until scope end or drop)
-    - 'temporary': used as a temporary expression (dropped at semicolon)
+    NOTE: This is less accurate than tree-sitter. Known limitations:
+    - .read()/.write() on I/O objects are filtered by name heuristic, not AST
+    - Ownership detection is line-based, not scope-based
+    - Cannot detect locks inside macros or multi-line expressions
     """
     sites = []
     current_fn = None
     current_fn_line = 0
 
     for i, line in enumerate(lines, 1):
+        # Skip comments
+        stripped = line.strip()
+        if stripped.startswith('//') or stripped.startswith('/*'):
+            continue
+
         fn_match = FN_RE.match(line)
         if fn_match:
             current_fn = fn_match.group(1)
@@ -69,6 +76,11 @@ def extract_lock_sites(filepath: Path, lines: list[str]):
         for lock_match in LOCK_RE.finditer(line):
             receiver = lock_match.group(1)
             method = lock_match.group(2)
+
+            # Filter I/O false positives: .read()/.write() on file/buffer objects
+            if method in ('read', 'write') and IO_RECEIVERS.search(receiver):
+                continue
+
             lock_name = f"{receiver}.{method}()"
 
             # Determine if the lock guard is held or temporary
@@ -80,7 +92,6 @@ def extract_lock_sites(filepath: Path, lines: list[str]):
                 binding = 'temporary'
                 guard_var = None
             else:
-                # Conservative: assume held if we can't determine
                 binding = 'held'
                 guard_var = None
 

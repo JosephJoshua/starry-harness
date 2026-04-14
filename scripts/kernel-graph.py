@@ -18,6 +18,13 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+# Tree-sitter integration via shared module (optional, falls back to regex).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from rust_analyzer import analyze_file as ts_analyze_file, parse_file, TREE_SITTER_AVAILABLE
+except ImportError:
+    TREE_SITTER_AVAILABLE = False
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -133,8 +140,8 @@ def build_handler_index(syscall_dir: Path) -> dict[str, str]:
     return index
 
 
-def analyse_file(filepath: Path) -> dict:
-    """Extract locks, unsafe count, cross-module calls, and kernel types from a file."""
+def _analyse_file_regex(filepath: Path) -> dict:
+    """Regex-based per-file analysis (fallback when tree-sitter unavailable)."""
     text = filepath.read_text()
 
     locks = sorted({
@@ -164,6 +171,70 @@ def analyse_file(filepath: Path) -> dict:
         "calls_to": cross_calls,
         "types_used": types_used,
     }
+
+
+def _analyse_file_treesitter(filepath: Path) -> dict | None:
+    """Tree-sitter-based per-file analysis (more accurate lock/call detection)."""
+    ts_result = ts_analyze_file(filepath)
+    if ts_result is None:
+        return None
+
+    # Convert LockSite objects to the same string format as the regex path.
+    # Filter I/O false positives using the same blocklist as the regex path.
+    # LockSite.lock_name is "receiver.method()" — extract receiver for filtering.
+    def _lock_receiver(lock_name: str) -> str:
+        return lock_name.rsplit(".", 1)[0] if "." in lock_name else lock_name
+    locks = sorted({
+        site.lock_name for site in ts_result['locks']
+        if _lock_receiver(site.lock_name) not in LOCK_FALSE_POSITIVES
+    })
+    unsafe_count = len(ts_result['unsafe_blocks'])
+
+    # Convert FunctionCall objects: keep only starry_* cross-module calls,
+    # plus use-import references that regex would also capture.
+    cross_set: set[str] = set()
+    for call in ts_result['calls']:
+        if call.callee.startswith("starry_"):
+            cross_set.add(call.callee)
+
+    # Tree-sitter call analysis only sees call-expressions, not `use` imports.
+    # Supplement with a quick regex scan for `use starry_*::{...}` imports so
+    # the cross-module picture stays complete.
+    text = filepath.read_text()
+    for m in RE_USE_IMPORT.finditer(text):
+        crate_name = m.group(1)
+        for item in m.group(2).split(","):
+            item = item.strip()
+            if item:
+                cross_set.add(f"{crate_name}::{item}")
+    # Also pick up non-call qualified references (type paths, trait impls, etc.)
+    for m in RE_CROSS_CALL.finditer(text):
+        cross_set.add(f"{m.group(1)}::{m.group(2)}")
+    cross_calls = sorted(cross_set)
+
+    # types_used is orthogonal to tree-sitter analysis; keep regex for it.
+    types_used = sorted({m.group(1) for m in RE_KERNEL_TYPES.finditer(text)})
+
+    return {
+        "locks": locks,
+        "unsafe_count": unsafe_count,
+        "calls_to": cross_calls,
+        "types_used": types_used,
+    }
+
+
+def analyse_file(filepath: Path) -> dict:
+    """Extract locks, unsafe count, cross-module calls, and kernel types from a file.
+
+    Uses tree-sitter when available for more accurate lock and unsafe detection
+    (no I/O .read()/.write() false positives, sees through macros). Falls back
+    to regex otherwise.
+    """
+    if TREE_SITTER_AVAILABLE:
+        result = _analyse_file_treesitter(filepath)
+        if result is not None:
+            return result
+    return _analyse_file_regex(filepath)
 
 
 def load_known(project_root: Path) -> dict:
@@ -366,8 +437,12 @@ def main() -> None:
         "coverage_pct": coverage,
     }
 
+    # --- Analysis mode ---
+    analysis_mode = "tree-sitter" if TREE_SITTER_AVAILABLE else "regex"
+
     # --- Assemble output ---
     graph = {
+        "analysis_mode": analysis_mode,
         "syscalls": dict(sorted(syscalls.items())),
         "subsystems": subsystems,
         "lock_hotspots": lock_hotspots,
@@ -386,6 +461,7 @@ def main() -> None:
     print()
     print("=" * 60)
     print("  StarryOS Kernel Architecture Graph")
+    print(f"  Analysis mode: {analysis_mode}")
     print("=" * 60)
     print()
     print(f"  Total syscalls handled:  {total}")

@@ -19,6 +19,15 @@ import os
 from pathlib import Path
 from collections import defaultdict
 
+# Tree-sitter for AST-level parsing (more accurate than regex for multi-line
+# match arms, nested blocks, and cfg attributes). Falls back to regex if
+# tree-sitter is not installed.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from rust_analyzer import parse_file, TREE_SITTER_AVAILABLE
+except ImportError:
+    TREE_SITTER_AVAILABLE = False
+
 # Linux kernel SYSCALL_DEFINE arities and signatures.
 #
 # VERIFICATION: Every entry is from the Linux kernel source SYSCALL_DEFINE macros.
@@ -255,22 +264,100 @@ SYSNO_RE = re.compile(r'Sysno::(\w+)\s*(?:\|[^=]*)?\s*=>')
 ARG_RE = re.compile(r'uctx\.arg(\d+)\(\)')
 
 
-def parse_dispatch(mod_rs_path: Path):
-    """Parse mod.rs to extract syscall name -> max arg index used."""
+def _parse_dispatch_tree_sitter(mod_rs_path: Path):
+    """Parse mod.rs with tree-sitter to extract syscall name -> max arg index used.
+
+    Walks the AST to find the match expression for syscall dispatch, then for
+    each match arm identifies the Sysno variant and collects all uctx.argN()
+    method calls in the arm body. This is more accurate than regex because it
+    correctly handles multi-line match arms, nested blocks, and cfg attributes.
+    """
+    result = parse_file(mod_rs_path)
+    if result is None:
+        return None
+
+    source, tree = result
+    results = {}
+
+    def _collect_arg_calls(node, args):
+        """Recursively collect uctx.argN() calls under a node."""
+        if node.type == 'call_expression':
+            func = node.child_by_field_name('function')
+            if func and func.type == 'field_expression':
+                receiver = func.child_by_field_name('value')
+                method = func.child_by_field_name('field')
+                if (receiver and method
+                        and receiver.text.decode() == 'uctx'
+                        and method.text.decode().startswith('arg')):
+                    try:
+                        idx = int(method.text.decode()[3:])
+                        args.add(idx)
+                    except ValueError:
+                        pass
+        for child in node.children:
+            _collect_arg_calls(child, args)
+
+    def _extract_sysno(pattern_node):
+        """Extract the Sysno variant name from a match arm pattern."""
+        text = pattern_node.text.decode()
+        # Handle "Sysno::Foo" and "Sysno::Foo | Sysno::Bar"
+        names = []
+        for m in re.finditer(r'Sysno::(\w+)', text):
+            names.append(m.group(1).lower())
+        return names
+
+    def _visit_match(node):
+        """Find match expressions and process their arms."""
+        if node.type == 'match_expression':
+            # Check if this is the syscall dispatch match (scrutinee mentions sysno/syscall_id)
+            scrutinee = node.child_by_field_name('value')
+            body = node.child_by_field_name('body')
+            if body is None:
+                return
+            for child in body.children:
+                if child.type == 'match_arm':
+                    pattern = child.child_by_field_name('pattern')
+                    value = child.child_by_field_name('value')
+                    if pattern is None or value is None:
+                        continue
+                    pattern_text = pattern.text.decode()
+                    if 'Sysno::' not in pattern_text:
+                        continue
+                    names = _extract_sysno(pattern)
+                    args_used = set()
+                    _collect_arg_calls(value, args_used)
+                    if args_used:
+                        max_arg = max(args_used)
+                        arg_count = max_arg + 1
+                        for name in names:
+                            results[name] = {
+                                'args_used': sorted(args_used),
+                                'arg_count': arg_count,
+                            }
+        for child in node.children:
+            _visit_match(child)
+
+    _visit_match(tree.root_node)
+    return results if results else None
+
+
+def _parse_dispatch_regex(mod_rs_path: Path):
+    """Regex fallback for parse_dispatch.
+
+    Uses uctx.argN() pattern which is unique enough to work reliably, though
+    it cannot handle cases where match arms span complex nested blocks or are
+    guarded by cfg attributes.
+    """
     text = mod_rs_path.read_text()
     results = {}
 
-    # Split by match arms
-    # Find each Sysno::XXX => handler block
     for match in SYSNO_RE.finditer(text):
         syscall_name = match.group(1).lower()
-        # Get the text from this match arm to the next Sysno:: or end of match
         start = match.end()
         next_match = SYSNO_RE.search(text, start)
         end = next_match.start() if next_match else len(text)
         block = text[start:end]
 
-        # Find all uctx.argN() calls in this block
         args_used = set()
         for arg_match in ARG_RE.finditer(block):
             args_used.add(int(arg_match.group(1)))
@@ -286,6 +373,24 @@ def parse_dispatch(mod_rs_path: Path):
     return results
 
 
+def parse_dispatch(mod_rs_path: Path):
+    """Parse mod.rs to extract syscall name -> max arg index used.
+
+    Uses tree-sitter when available for accurate AST-level parsing;
+    falls back to regex otherwise.
+
+    Returns: (results_dict, analysis_mode) where analysis_mode is
+    'tree-sitter' or 'regex'.
+    """
+    if TREE_SITTER_AVAILABLE:
+        results = _parse_dispatch_tree_sitter(mod_rs_path)
+        if results is not None:
+            return results, 'tree-sitter'
+
+    # Fallback: regex (uctx.argN() is unique enough to be reliable here)
+    return _parse_dispatch_regex(mod_rs_path), 'regex'
+
+
 def main():
     project_root = sys.argv[1] if len(sys.argv) > 1 else os.environ.get('CLAUDE_PROJECT_DIR', '.')
     json_output = None
@@ -298,7 +403,7 @@ def main():
         print(f"Error: {mod_rs} not found", file=sys.stderr)
         sys.exit(1)
 
-    starry_args = parse_dispatch(mod_rs)
+    starry_args, analysis_mode = parse_dispatch(mod_rs)
 
     mismatches = []
     matches = []
@@ -323,6 +428,7 @@ def main():
     print("║  ABI Arg Count Check — StarryOS vs Linux          ║")
     print("╚═══════════════════════════════════════════════════╝")
     print()
+    print(f"Analysis mode:      {analysis_mode}")
     print(f"Syscalls parsed:    {len(starry_args)}")
     print(f"Matched Linux:      {len(matches)}")
     print(f"MISMATCHED:         {len(mismatches)}")
