@@ -60,6 +60,9 @@ Write test → Run on Linux (MUST pass) → Run on StarryOS → Compare
 
 Concurrency bugs are non-deterministic. Use **controlled amplification** to make them manifest reliably. Full techniques in `references/concurrency-reproduction.md`. The key tools:
 
+### Runtime Lockdep (use first — deterministic)
+StarryOS has a built-in lockdep in `components/kspin/`. Enable it by adding `features = ["lockdep"]` to the `ax-kspin` dependency in `os/StarryOS/kernel/Cargo.toml`. It catches AB/BA deadlocks, recursive acquisitions, and out-of-order unlocks on the **first occurrence** — no stress testing needed. See `references/concurrency-reproduction.md` section 0 for full details.
+
 ### SMP Sweeping
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/stress-test.sh <test_name> --runs 100 --smp 1,2,4

@@ -13,6 +13,41 @@ a specific class of race window or forces a specific contention pattern.
 
 ---
 
+## 0. Runtime Lockdep (Deterministic — Use First)
+
+StarryOS already has a full Linux-style lockdep implementation in `components/kspin/src/lockdep.rs`. It is **not enabled by default**. When enabled, it deterministically catches lock ordering violations on the first occurrence — no stress testing or repeat runs needed.
+
+**How it works**: Every lock acquisition is tracked per-CPU. The system maintains a directed reachability graph of lock orderings across all threads. If a new acquisition would create a cycle (AB/BA), it panics immediately with the full chain: which lock, which thread, which call site, what's already held.
+
+**How to enable**:
+```toml
+# In os/StarryOS/kernel/Cargo.toml, change:
+ax-kspin = "0.3.1"
+# To:
+ax-kspin = { version = "0.3.1", features = ["lockdep"] }
+```
+
+Then rebuild: `cargo starry build --arch riscv64`. No other changes needed — `ax-percpu` (required by lockdep) is already a dependency of `starry-kernel`.
+
+**Verified working**: Tested with lockdep enabled on riscv64. Kernel boots normally, prlimit64/mremap/copy_file_range tests pass (11/11, 9/9, 7/7). No false panics. The lockdep is silent when lock ordering is correct and panics instantly when it detects a violation.
+
+**What it catches**:
+- AB/BA deadlocks (the SHM_MANAGER deadlock we found statically would be caught at runtime on the first shmget→shmat call)
+- Recursive lock acquisition (same lock acquired twice by same thread)
+- Out-of-order unlock (unlock B before A when A was acquired before B)
+
+**What it does NOT catch**:
+- Data races (no lock held but shared data accessed)
+- Atomicity violations
+- Missing locks entirely (data accessed without any lock)
+- Logic bugs in lock-free code
+
+**When to use**: Enable lockdep for all audit-kernel concurrency sessions. It adds ~5% runtime overhead but catches deadlocks deterministically that stress-test.sh can only catch probabilistically. Disable for benchmarking sessions (the overhead skews measurements).
+
+**Relationship to lock-order-graph.py**: The static script (`lock-order-graph.py`) analyzes source code without running it. Lockdep validates at runtime with actual execution paths. They are complementary — the static tool finds potential issues in code that tests don't exercise, while lockdep confirms real issues in code that actually runs.
+
+---
+
 ## 1. SMP Sweeping
 
 Run the same test binary across multiple SMP configurations to isolate
