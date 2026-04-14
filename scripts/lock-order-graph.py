@@ -22,6 +22,13 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
+# Try to use tree-sitter for accurate AST analysis; fall back to regex
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from rust_analyzer import analyze_file as ts_analyze_file, TREE_SITTER_AVAILABLE
+except ImportError:
+    TREE_SITTER_AVAILABLE = False
+
 # Compiled regexes
 LOCK_RE = re.compile(r'(\w[\w.()]*)\.(lock|read|write)\(\)')
 FN_RE = re.compile(r'^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)')
@@ -242,9 +249,33 @@ def main():
     all_sites = []
     all_unsafe = []
     all_lines_by_file = {}
+    analysis_mode = "tree-sitter" if TREE_SITTER_AVAILABLE else "regex"
 
     for src_dir in all_dirs:
         for rs_file in find_rust_files(src_dir):
+            if TREE_SITTER_AVAILABLE:
+                # AST-based analysis — accurate ownership tracking
+                result = ts_analyze_file(rs_file)
+                if result is not None:
+                    for lock in result['locks']:
+                        all_sites.append({
+                            'file': lock.file, 'line': lock.line,
+                            'function': lock.function, 'function_line': 0,
+                            'lock': lock.lock_name, 'method': lock.method,
+                            'receiver': lock.lock_name.split('.')[0],
+                            'binding': lock.binding, 'guard_var': lock.guard_var,
+                            'raw_line': lock.raw_line,
+                        })
+                    for ub in result['unsafe_blocks']:
+                        all_unsafe.append({
+                            'file': ub.file, 'line': ub.line,
+                            'function': ub.function,
+                            'has_safety_comment': ub.has_safety_comment,
+                            'raw_line': ub.raw_line,
+                        })
+                    all_lines_by_file[str(rs_file)] = rs_file.read_text().splitlines()
+                    continue
+            # Regex fallback
             try:
                 lines = rs_file.read_text().splitlines()
             except Exception:
@@ -267,7 +298,7 @@ def main():
     # Print report
     print("╔═══════════════════════════════════════════════════╗")
     print("║  Lock Order Analysis — StarryOS Kernel            ║")
-    print("║  (Rust ownership-aware)                           ║")
+    print(f"║  (analysis: {analysis_mode})" + " " * (41 - len(analysis_mode)) + "║")
     print("╚═══════════════════════════════════════════════════╝")
     print()
     print(f"Files scanned:        {len(set(s['file'] for s in all_sites))}")
