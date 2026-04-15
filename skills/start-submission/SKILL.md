@@ -38,7 +38,7 @@ This agent handles the mechanical work — cloning, copying files, building, com
 4. **Verify**: `cargo fmt && cargo xtask clippy --package starry-kernel && cargo starry build --arch riscv64`
 5. **Commit**: `fix(<scope>): <description>` — no body, no footer, under 70 chars
 6. **Convert test**: Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/convert-test.py` to convert from `starry_test.h` to `test_framework.h` format. Fix any conversion issues. Verify it compiles and passes on the host.
-7. **Prepare test repo**: Clone or fetch `linux-compatible-testsuit`. Create branch `test-<syscall>`. Detect the test directory (check what actually exists — `test_program/` or `tests/`). Copy converted test. Verify it compiles in-repo.
+7. **Prepare test repo**: Clone or fetch `linux-compatible-testsuit`. Branch off `origin/dev`: `git checkout -b "test-<syscall>" origin/dev`. Detect the test directory (check what actually exists — `test_program/` or `tests/`). Copy converted test. Verify it compiles in-repo.
 8. **Commit test**: `test(<scope>): <description>`
 
 ### Subagent B: Review Changes (model: opus)
