@@ -12,18 +12,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Before stopping, classify what happened this session and check accordingly.\n\nIf NO kernel code was modified and NO fix was proposed (pure investigation, discovery, or user Q&A): say 'approve'. The review pipeline only applies to fixes.\n\nIf bugs were FOUND but NOT fixed (discovery only): check that each finding has tier 1-5 evidence. If any finding is only tier 6-7 (code reading guess, LLM reasoning), it must be clearly marked as 'pending hypothesis'. If properly marked or all have real evidence: 'approve'.\n\nIf a fix WAS proposed or committed: check the full review pipeline:\n1. Was the fix backed by a failing test that passes after the fix?\n2. Was kernel-reviewer agent dispatched for fresh-context review?\n3. Was regression-check run (or at minimum clippy + the specific test)?\n4. For P0/P1: was independent re-derivation attempted?\n5. Were results recorded (known.json, journal, strategy.json)?\nIf any of these were skipped for a committed fix, say 'block' and explain what's missing. Otherwise 'approve'.",
-            "timeout": 30
-          }
-        ]
-      }
     ]
   }
 }

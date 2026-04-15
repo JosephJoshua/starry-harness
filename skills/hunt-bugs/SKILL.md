@@ -173,3 +173,11 @@ Generate structured artifacts for every bug found and fixed.
 - **linux-comparator** — Docker Linux test runner + structured comparison
 - **kernel-reviewer** — Code quality review for kernel changes
 - **bug-triager** — Bug classification and prioritization
+
+## Before Finishing
+
+**Before presenting results to the user, self-check:**
+- Every bug finding is backed by tier 1-5 evidence. Any tier 6-7 suspicion is marked "pending hypothesis."
+- If a fix was proposed: self-check, kernel-reviewer, and regression-check were all run. For P0/P1: independent re-derivation was attempted.
+- Results are recorded: known.json updated, journal entry written, strategy.json updated.
+- If any of these are incomplete, finish them before responding — do not present partial work as done.

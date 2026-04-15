@@ -139,3 +139,11 @@ See `references/kernel-audit-areas.md` for the full catalog. Summary:
 - **`references/verification-discipline.md`** — Full anti-hallucination protocol, tier definitions, test correctness chain
 - **`references/kernel-audit-areas.md`** — Detailed audit catalog for each kernel subsystem with specific code paths and what to look for
 - **`references/concurrency-reproduction.md`** — Techniques for reproducing races, deadlocks, and non-deterministic bugs
+
+## Before Finishing
+
+**Before presenting results to the user, self-check:**
+- Every finding is tier 1-5. Any code-reading suspicion without a test is marked "pending hypothesis."
+- If a fix was proposed: the full review pipeline was run (self-check, kernel-reviewer, regression, re-derivation for P0/P1).
+- Results are recorded: known.json, journal, strategy.json all updated.
+- If anything is incomplete, finish it before responding.

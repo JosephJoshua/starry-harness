@@ -250,3 +250,11 @@ Check stopping conditions:
 - **`${CLAUDE_PLUGIN_ROOT}/scripts/regression-check.sh`** — Full regression suite
 - **`${CLAUDE_PLUGIN_ROOT}/scripts/strace-profiler.sh`** — Application syscall profiling
 - **`${CLAUDE_PLUGIN_ROOT}/scripts/draft-pr.sh`** — PR draft generator (never auto-submits)
+
+## Before Finishing
+
+**Before presenting results to the user, self-check:**
+- Findings are backed by evidence (tier 1-5 only). Pending hypotheses are clearly marked.
+- Any proposed fix went through the review pipeline. Incomplete reviews are finished, not skipped.
+- State files are updated: strategy.json, known.json, journal.md.
+- If in autonomous mode: the cycle completed fully or was stopped at a clean boundary, not mid-fix.
