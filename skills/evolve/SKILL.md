@@ -40,9 +40,10 @@ At the start of every evolve session:
 3. Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/pattern-scanner.py` — any new pattern hits?
 4. Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/abi-check.py` — any syscall arg count mismatches vs Linux?
 5. Read `docs/starry-reports/journal.md` for recent activity
-6. Present current status: category gaps, analysis queue, ABI mismatches, change-tracker findings
-6. In human-driven mode: present the top 5 recommended targets and ask
-7. In autonomous mode: pick the top target and begin
+6. If convenient (not every session), run `check-upstream` to deprioritize bugs already fixed or claimed in upstream PRs
+7. Present current status: category gaps, analysis queue, ABI mismatches, change-tracker findings, upstream overlap
+8. In human-driven mode: present the top 5 recommended targets and ask
+9. In autonomous mode: pick the top target and begin
 
 ## Target Selection
 

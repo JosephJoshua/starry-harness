@@ -17,12 +17,14 @@ Execute the full upstream submission pipeline using parallel subagents. Do all t
 - Forbidden: em dashes (—), "不仅...而且...", filler adjectives, AI-style structures
 - Ask the user for the branch name — never auto-generate it
 
-## Step 1: Gather Info
+## Step 1: Gather Info and Check Upstream
 
 Ask these questions, then proceed without further prompting:
 1. Which bug/fix? (BUG-NNN, syscall name, or description)
 2. Branch name? (e.g., `b1`, `b6`, `fix-prlimit64`)
 3. Check automatically if `starryos-linux-compatible-testsuit/` exists locally
+
+**Before proceeding**, run the `check-upstream` skill to verify this bug hasn't been fixed or claimed upstream. If it's MERGED → abort and tell the user. If it's OPEN in another PR → warn the user and ask whether to proceed.
 
 ## Step 2: Dispatch Subagents
 

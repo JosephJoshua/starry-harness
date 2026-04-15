@@ -33,6 +33,7 @@ Restart Claude Code.
 | `report` | Structured bug reports, benchmark reports, app compatibility reports, and a running work journal. |
 | `evolve` | Autonomous target selection with sweep/deep modes. Picks what to work on based on coverage gaps and past effectiveness. Enforces the review pipeline. |
 | `start-submission` | Prepares upstream PRs: fresh clone, minimal fix port, test format conversion, verification, Chinese PR draft. Does everything except `gh pr create`. |
+| `check-upstream` | Compares known.json against open/merged upstream PRs to identify already-fixed bugs, claimed bugs, and safe-to-submit bugs. |
 
 ## Agents
 
