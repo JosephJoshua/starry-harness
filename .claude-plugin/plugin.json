@@ -1,6 +1,6 @@
 {
   "name": "starry-harness",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "AI-driven engineering harness for StarryOS kernel improvement: systematic bug hunting with Linux comparison testing, performance benchmarking, application compatibility testing, code quality enforcement, and structured reporting.",
   "author": {
     "name": "JosephJoshua"
